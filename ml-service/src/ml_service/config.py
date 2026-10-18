@@ -108,9 +108,13 @@ class FeatureConfig:
         return frozenset(acquired)
 
 
+def feature_config_path(path: Path | str | None = None) -> Path:
+    """``path`` if given, else the ``PAA_FEATURE_CONFIG`` variable, else the repo default."""
+    return Path(path or os.environ.get(CONFIG_PATH_ENV) or DEFAULT_CONFIG_PATH)
+
+
 def load_feature_config(path: Path | str | None = None) -> FeatureConfig:
-    """Load the configuration from ``path``, the ``PAA_FEATURE_CONFIG`` variable, or the repo default."""
-    resolved = Path(path or os.environ.get(CONFIG_PATH_ENV) or DEFAULT_CONFIG_PATH)
+    resolved = feature_config_path(path)
     try:
         raw = json.loads(resolved.read_text(encoding="utf-8"))
         return FeatureConfig(
