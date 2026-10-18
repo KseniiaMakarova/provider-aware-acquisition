@@ -12,6 +12,14 @@ spring:
   flyway:
     locations: classpath:db/migration
 
+acquisition:
+  # Paths are relative to the working directory (the backend module when run from Maven or IntelliJ).
+  feature-config: ${FEATURE_CONFIG:../config/feature-groups.json}
+  ml-service:
+    base-url: ${ML_SERVICE_URL:http://localhost:8000}
+    connect-timeout: 1s
+    read-timeout: 3s
+
 management:
   endpoints:
     web:
