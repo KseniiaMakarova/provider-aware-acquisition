@@ -9,7 +9,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
 
-import edu.auk.acquisition.config.AcquisitionProperties;
 import edu.auk.acquisition.feature.FeatureConfiguration;
 
 @Configuration(proxyBeanMethods = false)
@@ -18,9 +17,8 @@ class DatasetConfig {
 	private static final Logger log = LoggerFactory.getLogger(DatasetConfig.class);
 
 	@Bean
-	RestrictedRecordReader restrictedRecordReader(AcquisitionProperties properties, FeatureConfiguration config,
+	RestrictedRecordReader restrictedRecordReader(DatasetProperties dataset, FeatureConfiguration config,
 			Environment environment) {
-		AcquisitionProperties.Dataset dataset = properties.dataset();
 		checkAccessMode(dataset.accessMode(), environment.getActiveProfiles());
 		RestrictedRecordReader reader = RestrictedRecordReader.load(dataset.featuresDirPath(), dataset.accessMode(),
 				config);

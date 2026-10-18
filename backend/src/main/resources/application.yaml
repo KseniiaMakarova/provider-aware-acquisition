@@ -15,6 +15,7 @@ spring:
 acquisition:
   # Paths are relative to the working directory (the backend module when run from Maven or IntelliJ).
   feature-config: ${FEATURE_CONFIG:../config/feature-groups.json}
+  scenario-config: ${SCENARIO_CONFIG:../config/scenarios/default.json}
   dataset:
     # DEVELOPMENT reads validation records. FINAL_EVALUATION reads test records and is only
     # accepted together with the "final-evaluation" Spring profile.
