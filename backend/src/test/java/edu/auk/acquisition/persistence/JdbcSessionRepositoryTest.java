@@ -25,7 +25,9 @@ import edu.auk.acquisition.feature.FeatureConfiguration;
 import edu.auk.acquisition.feature.InvalidObservationException;
 import edu.auk.acquisition.feature.ObservedFeatures;
 import edu.auk.acquisition.session.AcquisitionSession;
+import edu.auk.acquisition.session.AcquisitionStep;
 import edu.auk.acquisition.session.PredictionSnapshot;
+import edu.auk.acquisition.session.SessionExceptions.ClaimLostException;
 import edu.auk.acquisition.session.SessionHistory;
 import edu.auk.acquisition.session.SessionStatus;
 
@@ -116,6 +118,82 @@ class JdbcSessionRepositoryTest {
 
 		assertThatThrownBy(() -> repository.find(session.id())).isInstanceOf(IllegalStateException.class)
 			.hasMessageContaining("do not match");
+	}
+
+	// --- Claim used by /advance (R9) ---
+
+	AcquisitionSession storedSession() {
+		AcquisitionSession session = session(initialValues());
+		repository.insertNew(session,
+				new PredictionSnapshot(0, 0.3, config.initialFeatures(), "mask-hgb-test", config.version(), NOW));
+		return session;
+	}
+
+	@Test
+	void onlyOneClaimCanBeHeldAtATime() {
+		UUID id = storedSession().id();
+		Instant now = Instant.now();
+
+		assertThat(repository.claim(id, UUID.randomUUID(), now, now.minusSeconds(30))).isTrue();
+		assertThat(repository.claim(id, UUID.randomUUID(), now, now.minusSeconds(30))).isFalse();
+	}
+
+	@Test
+	void releasedClaimCanBeTakenAgainButOnlyByItsOwnerToRelease() {
+		UUID id = storedSession().id();
+		Instant now = Instant.now();
+		UUID owner = UUID.randomUUID();
+		repository.claim(id, owner, now, now.minusSeconds(30));
+
+		repository.release(id, UUID.randomUUID());
+		assertThat(repository.claim(id, UUID.randomUUID(), now, now.minusSeconds(30))).isFalse();
+
+		repository.release(id, owner);
+		assertThat(repository.claim(id, UUID.randomUUID(), now, now.minusSeconds(30))).isTrue();
+	}
+
+	@Test
+	void staleClaimCanBeTakenOver() {
+		UUID id = storedSession().id();
+		Instant longAgo = Instant.now().minusSeconds(3600);
+		repository.claim(id, UUID.randomUUID(), longAgo, longAgo.minusSeconds(30));
+
+		Instant now = Instant.now();
+		assertThat(repository.claim(id, UUID.randomUUID(), now, now.minusSeconds(30))).isTrue();
+	}
+
+	@Test
+	void finishedSessionCannotBeClaimed() {
+		AcquisitionSession session = storedSession();
+		Instant now = Instant.now();
+		UUID token = UUID.randomUUID();
+		repository.claim(session.id(), token, now, now.minusSeconds(30));
+		repository.saveAdvance(token, completed(session), null, null);
+
+		assertThat(repository.claim(session.id(), UUID.randomUUID(), now, now.minusSeconds(30))).isFalse();
+	}
+
+	@Test
+	void saveWithALostClaimStoresNothing() {
+		AcquisitionSession session = storedSession();
+		Instant now = Instant.now();
+		UUID lost = UUID.randomUUID();
+		repository.claim(session.id(), lost, now.minusSeconds(3600), now.minusSeconds(7200));
+		repository.claim(session.id(), UUID.randomUUID(), now, now.minusSeconds(30)); // takes over the stale claim
+
+		AcquisitionStep step = new AcquisitionStep(1, "BILLING_HISTORY", "test", "FAILED", "down", null,
+				BigDecimal.ONE, BigDecimal.ZERO, 200, 1, null, NOW);
+		assertThatThrownBy(() -> repository.saveAdvance(lost, session, step, null))
+			.isInstanceOf(ClaimLostException.class);
+		assertThat(jdbc.queryForObject("SELECT count(*) FROM acquisition_step WHERE session_id = ?", Integer.class,
+				session.id())).isZero();
+	}
+
+	static AcquisitionSession completed(AcquisitionSession s) {
+		return new AcquisitionSession(s.id(), s.recordId(), s.datasetSplit(), s.accessMode(), s.policyId(),
+				s.scenarioVersion(), s.featureConfigVersion(), s.modelVersion(), SessionStatus.COMPLETED,
+				"NO_FEASIBLE_PROVIDERS", s.observed(), s.totalCost(), s.accumulatedSimulatedMs(), s.executionMs(),
+				s.createdAt(), s.updatedAt());
 	}
 
 	@Test

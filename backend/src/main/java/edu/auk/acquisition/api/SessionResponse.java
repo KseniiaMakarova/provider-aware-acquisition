@@ -36,6 +36,9 @@ public record SessionResponse(UUID sessionId, String recordId, String status, St
 			Integer predictionSequenceNumber) {
 
 		static StepView of(AcquisitionStep s) {
+			if (s == null) {
+				return null;
+			}
 			return new StepView(s.stepNumber(), s.providerId(), s.status(), s.decisionReason(), s.failureReason(),
 					s.returnedFeatures(), s.chargedCost(), s.simulatedLatencyMs(), s.predictionSequenceNumber());
 		}

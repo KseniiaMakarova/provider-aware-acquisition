@@ -5,8 +5,6 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
-import java.util.Set;
-import java.util.TreeSet;
 import java.util.UUID;
 
 import org.slf4j.Logger;
@@ -17,6 +15,7 @@ import org.springframework.stereotype.Service;
 import edu.auk.acquisition.dataset.RecordNotAvailableException;
 import edu.auk.acquisition.feature.FeatureConfiguration;
 import edu.auk.acquisition.feature.ObservedFeatures;
+import edu.auk.acquisition.policy.PolicyRegistry;
 import edu.auk.acquisition.prediction.Prediction;
 import edu.auk.acquisition.prediction.PredictionClient;
 import edu.auk.acquisition.provider.ProviderMetadata;
@@ -29,24 +28,24 @@ import edu.auk.acquisition.session.SessionExceptions.UnsupportedPolicyException;
 @Service
 public class SessionService {
 
-	/** Policies a session can be started with; the policies themselves arrive with /advance. */
-	public static final Set<String> SUPPORTED_POLICIES = Set.of("FIXED_ORDER");
-
 	private static final Logger log = LoggerFactory.getLogger(SessionService.class);
 
 	private final InitialInformationLoader initialLoader;
 	private final PredictionClient predictionClient;
 	private final SessionRepository repository;
 	private final ProviderRegistry providers;
+	private final PolicyRegistry policies;
 	private final FeatureConfiguration config;
 	private final Clock clock;
 
 	public SessionService(InitialInformationLoader initialLoader, PredictionClient predictionClient,
-			SessionRepository repository, ProviderRegistry providers, FeatureConfiguration config, Clock clock) {
+			SessionRepository repository, ProviderRegistry providers, PolicyRegistry policies,
+			FeatureConfiguration config, Clock clock) {
 		this.initialLoader = initialLoader;
 		this.predictionClient = predictionClient;
 		this.repository = repository;
 		this.providers = providers;
+		this.policies = policies;
 		this.config = config;
 		this.clock = clock;
 	}
@@ -61,8 +60,8 @@ public class SessionService {
 	 */
 	public SessionHistory create(String recordId, String policyId) {
 		long start = System.nanoTime();
-		if (!SUPPORTED_POLICIES.contains(policyId)) {
-			throw new UnsupportedPolicyException(policyId, new TreeSet<>(SUPPORTED_POLICIES));
+		if (policies.find(policyId).isEmpty()) {
+			throw new UnsupportedPolicyException(policyId, policies.ids());
 		}
 		ObservedFeatures observed;
 		try {

@@ -25,6 +25,8 @@ acquisition:
     base-url: ${ML_SERVICE_URL:http://localhost:8000}
     connect-timeout: 1s
     read-timeout: 3s
+  # A crashed /advance releases its claim on the session after this time.
+  advance-lease: 30s
 
 management:
   endpoints:

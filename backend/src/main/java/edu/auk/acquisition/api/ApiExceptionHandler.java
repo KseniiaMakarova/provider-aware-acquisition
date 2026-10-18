@@ -16,6 +16,10 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 
 import edu.auk.acquisition.prediction.PredictionRejectedException;
 import edu.auk.acquisition.prediction.PredictionUnavailableException;
+import edu.auk.acquisition.provider.ProviderContractException;
+import edu.auk.acquisition.session.SessionExceptions.AdvanceInProgressException;
+import edu.auk.acquisition.session.SessionExceptions.ClaimLostException;
+import edu.auk.acquisition.session.SessionExceptions.SessionNotActiveException;
 import edu.auk.acquisition.session.SessionExceptions.SessionNotFoundException;
 import edu.auk.acquisition.session.SessionExceptions.UnknownRecordException;
 import edu.auk.acquisition.session.SessionExceptions.UnsupportedPolicyException;
@@ -68,11 +72,33 @@ class ApiExceptionHandler {
 		return error(HttpStatus.NOT_FOUND, "SESSION_NOT_FOUND", e.getMessage());
 	}
 
+	@ExceptionHandler(SessionNotActiveException.class)
+	ResponseEntity<ApiError> sessionNotActive(SessionNotActiveException e) {
+		return error(HttpStatus.CONFLICT, "SESSION_NOT_ACTIVE", e.getMessage());
+	}
+
+	@ExceptionHandler(AdvanceInProgressException.class)
+	ResponseEntity<ApiError> advanceInProgress(AdvanceInProgressException e) {
+		return error(HttpStatus.CONFLICT, "ADVANCE_IN_PROGRESS", e.getMessage());
+	}
+
+	@ExceptionHandler(ClaimLostException.class)
+	ResponseEntity<ApiError> claimLost(ClaimLostException e) {
+		log.warn(e.getMessage());
+		return error(HttpStatus.CONFLICT, "ADVANCE_DISCARDED", e.getMessage());
+	}
+
 	@ExceptionHandler(PredictionUnavailableException.class)
 	ResponseEntity<ApiError> mlUnavailable(PredictionUnavailableException e) {
 		log.warn("ML service unavailable: {}", e.getMessage());
 		return error(HttpStatus.SERVICE_UNAVAILABLE, "ML_SERVICE_UNAVAILABLE",
-				"The prediction service is unavailable; no session was created");
+				"The prediction service is unavailable; nothing was created or changed");
+	}
+
+	@ExceptionHandler(ProviderContractException.class)
+	ResponseEntity<ApiError> providerContract(ProviderContractException e) {
+		log.error("Provider contract violated: {}", e.getMessage());
+		return error(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", e.getMessage());
 	}
 
 	@ExceptionHandler(PredictionRejectedException.class)

@@ -22,6 +22,8 @@ import edu.auk.acquisition.dataset.DatasetAccessMode;
 import edu.auk.acquisition.dataset.RestrictedRecordReader;
 import edu.auk.acquisition.feature.FeatureConfiguration;
 import edu.auk.acquisition.feature.ObservedFeatures;
+import edu.auk.acquisition.policy.FixedOrderPolicy;
+import edu.auk.acquisition.policy.PolicyRegistry;
 import edu.auk.acquisition.prediction.Prediction;
 import edu.auk.acquisition.prediction.PredictionClient;
 import edu.auk.acquisition.prediction.PredictionUnavailableException;
@@ -67,10 +69,27 @@ class SessionServiceTest {
 			return Optional.ofNullable(stored.get(id));
 		}
 
+		@Override
+		public boolean claim(UUID sessionId, UUID token, Instant now, Instant staleBefore) {
+			throw new UnsupportedOperationException();
+		}
+
+		@Override
+		public void release(UUID sessionId, UUID token) {
+			throw new UnsupportedOperationException();
+		}
+
+		@Override
+		public void saveAdvance(UUID token, AcquisitionSession updated, AcquisitionStep step,
+				PredictionSnapshot prediction) {
+			throw new UnsupportedOperationException();
+		}
+
 	};
 
 	final SessionService service = new SessionService(new InitialInformationLoader(reader, config), predictionClient,
-			repository, registry(), config, Clock.fixed(NOW, ZoneOffset.UTC));
+			repository, registry(), new PolicyRegistry(List.of(new FixedOrderPolicy(config.providerIds()))), config,
+			Clock.fixed(NOW, ZoneOffset.UTC));
 
 	static ProviderRegistry registry() {
 		var scenario = TestScenarios.neutral();

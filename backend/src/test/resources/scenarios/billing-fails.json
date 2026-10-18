@@ -1,0 +1,25 @@
+{
+  "scenarioVersion": "test-billing-fails",
+  "description": "Billing History always fails",
+  "seed": 42,
+  "providers": {
+    "REPAYMENT_HISTORY": {
+      "cost": 1.0,
+      "latencyMs": 200,
+      "available": true,
+      "failureRate": 0.0
+    },
+    "BILLING_HISTORY": {
+      "cost": 1.0,
+      "latencyMs": 450,
+      "available": true,
+      "failureRate": 1.0
+    },
+    "PAYMENT_HISTORY": {
+      "cost": 2.5,
+      "latencyMs": 200,
+      "available": true,
+      "failureRate": 0.0
+    }
+  }
+}
