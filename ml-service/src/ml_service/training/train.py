@@ -25,6 +25,7 @@ import numpy as np
 import pandas as pd
 import sklearn
 
+from ml_service.artifacts import DEPLOYED_FILE, METADATA_FILE, MODEL_FILE, MODELS_DIR
 from ml_service.config import FeatureConfig, feature_config_path, load_feature_config
 from ml_service.data.prepare import RESTRICTED_DIR, SOURCE_FILE, DatasetSource, sha256_of
 from ml_service.encoding import encode_all_states, encode_state, indicator_columns, input_columns, state_name
@@ -38,8 +39,6 @@ TRAINING_SPLITS = ("train", "validation")
 # A difference in ROC-AUC larger than this is treated as "substantially worse" and needs review.
 REVIEW_AUC_MARGIN = 0.01
 
-MODELS_DIR = "models"
-DEPLOYED_FILE = "deployed.json"
 
 
 def report_file(config: FeatureConfig) -> str:
@@ -169,7 +168,7 @@ def save_artifacts(
         if target.exists():
             shutil.rmtree(target)
         target.mkdir(parents=True)
-        joblib.dump(fitted[name], target / "model.joblib")
+        joblib.dump(fitted[name], target / MODEL_FILE)
         metadata = {
             "modelVersion": version,
             "candidate": name,
@@ -185,7 +184,7 @@ def save_artifacts(
             "createdAt": created,
             **prov,
         }
-        (target / "metadata.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+        (target / METADATA_FILE).write_text(json.dumps(metadata, indent=2), encoding="utf-8")
 
     report = {"createdAt": created, "provenance": prov, "candidates": results,
               "selection": {**selection, "modelVersion": versions[selection["selected"]]}}

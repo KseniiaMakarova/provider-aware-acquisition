@@ -1,10 +1,12 @@
 -r requirements.txt
 
 pytest==9.1.1
+httpx2==2.14.0            # FastAPI/Starlette TestClient
 
 # Transitive
-colorama==0.4.6           # via pytest
+httpcore2==2.14.0         # via httpx2
 iniconfig==2.3.1          # via pytest
 packaging==26.3           # via pytest
 pluggy==1.7.0             # via pytest
 Pygments==2.21.0          # via pytest
+truststore==0.10.5        # via httpx2, httpcore2

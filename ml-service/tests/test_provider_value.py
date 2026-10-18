@@ -3,7 +3,7 @@ import json
 import pytest
 
 from ml_service.analysis.provider_value import binary_entropy, record_log_loss, run, shapley
-from ml_service.training.train import DEPLOYED_FILE
+from ml_service.artifacts import DEPLOYED_FILE
 
 
 def test_shapley_of_additive_function_equals_each_contribution():
