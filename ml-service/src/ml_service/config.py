@@ -15,8 +15,10 @@ from dataclasses import dataclass
 from itertools import combinations
 from pathlib import Path
 
+from ml_service.paths import REPO_ROOT
+
 CONFIG_PATH_ENV = "PAA_FEATURE_CONFIG"
-DEFAULT_CONFIG_PATH = Path(__file__).resolve().parents[3] / "config" / "feature-groups.json"
+DEFAULT_CONFIG_PATH = REPO_ROOT / "config" / "feature-groups.json"
 
 
 class FeatureConfigError(ValueError):

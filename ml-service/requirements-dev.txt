@@ -1,1 +1,10 @@
+-r requirements.txt
+
 pytest==9.1.1
+
+# Transitive
+colorama==0.4.6           # via pytest
+iniconfig==2.3.1          # via pytest
+packaging==26.3           # via pytest
+pluggy==1.7.0             # via pytest
+Pygments==2.21.0          # via pytest

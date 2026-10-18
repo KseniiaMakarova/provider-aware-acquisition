@@ -1,0 +1,17 @@
+# Runtime dependencies, fully pinned (direct and transitive) for reproducibility.
+
+# Data preparation and modelling
+numpy==2.5.4
+pandas==3.0.6
+scikit-learn==1.9.1
+xlrd==2.0.2
+
+# Transitive
+cloudpickle==3.1.2        # via joblib
+joblib==1.6.0             # via scikit-learn
+narwhals==2.27.1          # via scikit-learn
+python-dateutil==2.9.0.post0  # via pandas
+scipy==1.18.1             # via scikit-learn
+six==1.17.0               # via python-dateutil
+threadpoolctl==3.7.0      # via scikit-learn
+tzdata==2026.5            # via pandas

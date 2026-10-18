@@ -1,9 +1,19 @@
+[build-system]
+requires = ["setuptools==84.0.0"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "ml-service"
 version = "0.1.0"
 description = "Offline training and online inference for provider-aware acquisition"
 requires-python = ">=3.13,<3.14"
 
+[tool.setuptools.packages.find]
+where = ["src"]
+
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
+markers = [
+    "requires_data: needs the downloaded dataset (run python -m ml_service.data.prepare first)",
+]
