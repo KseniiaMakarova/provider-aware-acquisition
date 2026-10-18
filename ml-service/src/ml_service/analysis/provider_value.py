@@ -32,7 +32,8 @@ from ml_service.encoding import encode_state, state_name
 from ml_service.metrics import binary_metrics
 from ml_service.paths import artifacts_dir as default_artifacts_dir
 from ml_service.paths import data_dir as default_data_dir
-from ml_service.training.train import DEPLOYED_FILE, MODELS_DIR, load_split
+from ml_service.artifacts import DEPLOYED_FILE, METADATA_FILE, MODEL_FILE, MODELS_DIR
+from ml_service.training.train import load_split
 
 ANALYSIS_DIR = "analysis"
 CHANGE_THRESHOLDS = (0.05, 0.10)
@@ -200,13 +201,13 @@ def run(data_dir: Path, artifacts: Path, config: FeatureConfig, version: str | N
     if version is None:
         version = json.loads((artifacts / DEPLOYED_FILE).read_text(encoding="utf-8"))["modelVersion"]
     model_dir = artifacts / MODELS_DIR / version
-    metadata = json.loads((model_dir / "metadata.json").read_text(encoding="utf-8"))
+    metadata = json.loads((model_dir / METADATA_FILE).read_text(encoding="utf-8"))
     if metadata["featureConfigVersion"] != config.version:
         raise ValueError(
             f"Model {version} was trained with {metadata['featureConfigVersion']}, but the loaded "
             f"feature configuration is {config.version}; set PAA_FEATURE_CONFIG to the matching file"
         )
-    result = analyze(joblib.load(model_dir / "model.joblib"), load_split(data_dir, "validation"), config)
+    result = analyze(joblib.load(model_dir / MODEL_FILE), load_split(data_dir, "validation"), config)
     out = artifacts / ANALYSIS_DIR / f"provider-value-{version}.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(result, indent=2), encoding="utf-8")

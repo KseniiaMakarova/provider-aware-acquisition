@@ -9,7 +9,8 @@ import pytest
 from conftest import FAST_HGB as FAST
 from ml_service.encoding import encode_state, input_columns
 from ml_service.training import train as train_module
-from ml_service.training.train import DEPLOYED_FILE, load_split, report_file, run, select_model
+from ml_service.artifacts import DEPLOYED_FILE
+from ml_service.training.train import load_split, report_file, run, select_model
 
 
 # --- Report contents ---
