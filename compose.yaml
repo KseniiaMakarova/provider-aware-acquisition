@@ -1,3 +1,11 @@
+# PostgreSQL only (for development from the IDE):   docker compose up -d
+# All services:                                       docker compose --profile app up -d --build
+#
+# The full stack needs the generated files first: data/features/validation.csv
+# (python -m ml_service.data.prepare) and ml-service/artifacts (python -m ml_service.training.train).
+# Each service gets only the files it needs, read-only: the ML service sees model artifacts but no
+# data; the backend sees the label-free validation features but no labels, training or test records.
+
 services:
   postgres:
     image: postgres:18.6
@@ -14,6 +22,51 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+  ml-service:
+    profiles: [app]
+    build: ./ml-service
+    image: provider-aware-acquisition/ml-service:local
+    volumes:
+      - ./config/feature-groups.json:/config/feature-groups.json:ro
+      - ./ml-service/artifacts:/artifacts:ro
+    # No published port: only the backend can reach the ML service.
+
+  backend:
+    profiles: [app]
+    build: ./backend
+    image: provider-aware-acquisition/backend:local
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ${POSTGRES_DB:-acquisition}
+      POSTGRES_USER: ${POSTGRES_USER:-acquisition}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-acquisition}
+      FEATURE_CONFIG: /config/feature-groups.json
+      SCENARIO_CONFIG: /config/scenarios/${SCENARIO:-default}.json
+      DATASET_ACCESS_MODE: DEVELOPMENT
+      DATASET_FEATURES_DIR: /data/features
+      ML_SERVICE_URL: http://ml-service:8000
+    volumes:
+      - ./config/feature-groups.json:/config/feature-groups.json:ro
+      - ./config/scenarios:/config/scenarios:ro
+      - ./data/features/validation.csv:/data/features/validation.csv:ro
+    ports:
+      - "${BACKEND_PORT:-8080}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ml-service:
+        condition: service_healthy
+
+  frontend:
+    profiles: [app]
+    build: ./frontend
+    image: provider-aware-acquisition/frontend:local
+    ports:
+      - "${FRONTEND_PORT:-4200}:80"
+    depends_on:
+      - backend
 
 volumes:
   postgres-data:
