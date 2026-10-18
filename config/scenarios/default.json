@@ -1,0 +1,10 @@
+{
+  "scenarioVersion": "default-v1",
+  "description": "Neutral baseline: every provider has the same cost and latency, is available and never fails. Costs are experimental units, not money.",
+  "seed": 42,
+  "providers": {
+    "REPAYMENT_HISTORY": { "cost": 1.0, "latencyMs": 200, "available": true, "failureRate": 0.0 },
+    "BILLING_HISTORY": { "cost": 1.0, "latencyMs": 200, "available": true, "failureRate": 0.0 },
+    "PAYMENT_HISTORY": { "cost": 1.0, "latencyMs": 200, "available": true, "failureRate": 0.0 }
+  }
+}
