@@ -1,0 +1,29 @@
+{
+  "name": "Default of Credit Card Clients",
+  "publisher": "UCI Machine Learning Repository",
+  "uciId": 350,
+  "doi": "10.24432/C55S3H",
+  "license": "CC BY 4.0",
+  "citation": "Yeh, I. (2009). Default of Credit Card Clients [Dataset]. UCI Machine Learning Repository. https://doi.org/10.24432/C55S3H",
+  "url": "https://archive.ics.uci.edu/static/public/350/default+of+credit+card+clients.zip",
+  "retrieved": "2026-10-19",
+  "archive": {
+    "fileName": "default_of_credit_card_clients.zip",
+    "sizeBytes": 5539494,
+    "sha256": "56c885f84457f6680f8438f02bfcdac9579323d8a94465ee5f26e32baa727602"
+  },
+  "member": {
+    "fileName": "default of credit card clients.xls",
+    "headerRow": 1
+  },
+  "split": {
+    "manifest": "split-manifest.csv",
+    "method": "Stratified by target in two stages: train vs holdout, then holdout into validation and test",
+    "seed": 42,
+    "fractions": {
+      "train": 0.70,
+      "validation": 0.15,
+      "test": 0.15
+    }
+  }
+}
