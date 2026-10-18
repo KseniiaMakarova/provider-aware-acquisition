@@ -1,16 +1,16 @@
 {
-  "configVersion": "fg-1",
+  "configVersion": "fg-2",
   "dataset": {
     "name": "UCI Default of Credit Card Clients",
     "recordIdColumn": "ID",
     "targetColumn": "default payment next month"
   },
-  "initialFeatures": ["LIMIT_BAL", "PAY_0", "BILL_AMT1", "PAY_AMT1"],
+  "initialFeatures": ["LIMIT_BAL", "BILL_AMT1", "PAY_AMT1"],
   "providers": [
     {
       "id": "REPAYMENT_HISTORY",
-      "description": "Repayment status for the five preceding months",
-      "features": ["PAY_2", "PAY_3", "PAY_4", "PAY_5", "PAY_6"]
+      "description": "Repayment status for the six most recent months",
+      "features": ["PAY_0", "PAY_2", "PAY_3", "PAY_4", "PAY_5", "PAY_6"]
     },
     {
       "id": "BILLING_HISTORY",

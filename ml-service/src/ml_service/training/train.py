@@ -39,8 +39,12 @@ TRAINING_SPLITS = ("train", "validation")
 REVIEW_AUC_MARGIN = 0.01
 
 MODELS_DIR = "models"
-REPORT_FILE = "validation-report.json"
 DEPLOYED_FILE = "deployed.json"
+
+
+def report_file(config: FeatureConfig) -> str:
+    """One report per feature configuration, so results of earlier groupings are kept."""
+    return f"validation-report-{config.version}.json"
 
 
 def load_split(data_dir: Path, split: str) -> pd.DataFrame:
@@ -185,7 +189,7 @@ def save_artifacts(
 
     report = {"createdAt": created, "provenance": prov, "candidates": results,
               "selection": {**selection, "modelVersion": versions[selection["selected"]]}}
-    (out_dir / REPORT_FILE).write_text(json.dumps(report, indent=2), encoding="utf-8")
+    (out_dir / report_file(config)).write_text(json.dumps(report, indent=2), encoding="utf-8")
 
     deployed = out_dir / DEPLOYED_FILE
     if selection["reviewRequired"] and not accept_flagged:
