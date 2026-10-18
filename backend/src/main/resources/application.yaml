@@ -5,12 +5,12 @@ spring:
     url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:acquisition}
     username: ${POSTGRES_USER:acquisition}
     password: ${POSTGRES_PASSWORD:acquisition}
-  jpa:
-    open-in-view: false
-    hibernate:
-      ddl-auto: validate
   flyway:
     locations: classpath:db/migration
+  jackson:
+    deserialization:
+      # Reject request fields the API does not define (e.g. a label or a hidden feature).
+      fail-on-unknown-properties: true
 
 acquisition:
   # Paths are relative to the working directory (the backend module when run from Maven or IntelliJ).

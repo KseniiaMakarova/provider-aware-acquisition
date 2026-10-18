@@ -25,4 +25,13 @@ public class InitialInformationLoader {
 		return ObservedFeatures.of(reader.initialFeatures(recordId), config);
 	}
 
+	/** Dataset split whose records sessions are created from. */
+	public String split() {
+		return reader.split();
+	}
+
+	public String accessMode() {
+		return reader.accessMode().name();
+	}
+
 }
