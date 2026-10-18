@@ -1,39 +1,15 @@
 import json
-import shutil
 import subprocess
 import sys
 
 import joblib
-import numpy as np
 import pandas as pd
 import pytest
 
-from conftest import synthetic_records
-from ml_service.data.prepare import SOURCE_FILE, make_split_manifest, write_csv, write_split_files
+from conftest import FAST_HGB as FAST
 from ml_service.encoding import encode_state, input_columns
-from ml_service.paths import data_dir as real_data_dir
 from ml_service.training import train as train_module
-from ml_service.training.train import DEPLOYED_FILE, REPORT_FILE, load_split, run, select_model
-
-FAST = {"max_iter": 30}
-
-
-@pytest.fixture(scope="module")
-def data_dir(tmp_path_factory, config):
-    """A data directory with the real layout, filled with synthetic records."""
-    directory = tmp_path_factory.mktemp("data")
-    shutil.copy(real_data_dir() / SOURCE_FILE, directory / SOURCE_FILE)
-    records = synthetic_records(config, 3000, seed=1)
-    manifest = make_split_manifest(records, config, seed=42, validation_fraction=0.15, test_fraction=0.15)
-    write_csv(manifest, directory / "split-manifest.csv")
-    write_split_files(records, manifest, config, directory)
-    return directory
-
-
-@pytest.fixture(scope="module")
-def trained(data_dir, config, tmp_path_factory):
-    out = tmp_path_factory.mktemp("artifacts")
-    return out, run(data_dir, out, config, hgb_overrides=FAST)
+from ml_service.training.train import DEPLOYED_FILE, load_split, report_file, run, select_model
 
 
 # --- Report contents ---
@@ -105,7 +81,7 @@ def test_deployed_pointer_and_metadata(trained, config):
     assert metadata["inputColumns"] == list(input_columns(config))
     assert metadata["trainingSplits"] == ["train", "validation"]
     assert len(metadata["validation"]["states"]) == 8
-    assert (out / REPORT_FILE).exists()
+    assert (out / report_file(config)).exists()
 
 
 def test_saved_model_reproduces_reported_validation_metrics(trained, data_dir, config):
