@@ -1,0 +1,25 @@
+{
+  "scenarioVersion": "test-billing-unavailable",
+  "description": "Billing History unavailable",
+  "seed": 42,
+  "providers": {
+    "REPAYMENT_HISTORY": {
+      "cost": 1.0,
+      "latencyMs": 200,
+      "available": true,
+      "failureRate": 0.0
+    },
+    "BILLING_HISTORY": {
+      "cost": 1.0,
+      "latencyMs": 200,
+      "available": false,
+      "failureRate": 0.0
+    },
+    "PAYMENT_HISTORY": {
+      "cost": 2.5,
+      "latencyMs": 200,
+      "available": true,
+      "failureRate": 0.0
+    }
+  }
+}

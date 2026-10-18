@@ -13,7 +13,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import edu.auk.acquisition.api.SessionResponse.StepView;
 import edu.auk.acquisition.feature.FeatureConfiguration;
+import edu.auk.acquisition.session.AcquisitionOrchestrator;
+import edu.auk.acquisition.session.AdvanceResult;
 import edu.auk.acquisition.session.SessionHistory;
 import edu.auk.acquisition.session.SessionService;
 
@@ -22,11 +25,21 @@ import edu.auk.acquisition.session.SessionService;
 class SessionController {
 
 	private final SessionService sessions;
+	private final AcquisitionOrchestrator orchestrator;
 	private final FeatureConfiguration config;
 
-	SessionController(SessionService sessions, FeatureConfiguration config) {
+	SessionController(SessionService sessions, AcquisitionOrchestrator orchestrator, FeatureConfiguration config) {
 		this.sessions = sessions;
+		this.orchestrator = orchestrator;
 		this.config = config;
+	}
+
+	/** Makes one policy decision: acquire one provider or stop (FR-6 to FR-8). */
+	@PostMapping("/{id}/advance")
+	AdvanceResponse advance(@PathVariable UUID id) {
+		AdvanceResult result = orchestrator.advance(id);
+		return new AdvanceResponse(result.outcome().name(), result.decisionReason(), StepView.of(result.step()),
+				toResponse(result.history()));
 	}
 
 	/** Starts a session from the initial information and returns it with the initial prediction. */

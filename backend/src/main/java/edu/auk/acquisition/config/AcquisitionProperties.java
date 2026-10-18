@@ -22,11 +22,13 @@ import org.springframework.validation.annotation.Validated;
  * @param featureConfig  path of the shared feature/provider grouping file
  * @param scenarioConfig path of the provider scenario (cost, latency, availability, failures)
  * @param mlService      connection settings for the Python inference service
+ * @param advanceLease   how long one /advance may hold its claim on a session before another
+ *                       request may take over; must exceed the ML read timeout
  */
 @Validated
 @ConfigurationProperties("acquisition")
 public record AcquisitionProperties(@NotBlank String featureConfig, @NotBlank String scenarioConfig,
-		@NotNull @Valid MlService mlService) {
+		@NotNull @Valid MlService mlService, @NotNull Duration advanceLease) {
 
 	public Path featureConfigPath() {
 		return Path.of(featureConfig);
