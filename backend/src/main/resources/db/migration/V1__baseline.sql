@@ -1,0 +1,2 @@
+-- Baseline migration. The acquisition schema (sessions, steps, prediction
+-- snapshots, provider scenarios) is added in later migrations.
