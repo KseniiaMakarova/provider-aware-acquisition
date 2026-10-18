@@ -1,8 +1,6 @@
-import numpy as np
 import pandas as pd
 import pytest
 
-from ml_service.config import load_feature_config
 from ml_service.data.prepare import (
     FEATURES_DIR,
     RESTRICTED_DIR,
@@ -16,23 +14,6 @@ from ml_service.data.prepare import (
 )
 
 SPLIT_ARGS = {"seed": 42, "validation_fraction": 0.15, "test_fraction": 0.15}
-
-
-@pytest.fixture(scope="module")
-def config():
-    return load_feature_config()
-
-
-@pytest.fixture
-def records(config):
-    """Synthetic table with the real column layout: 2,000 records, ~22% positives."""
-    rng = np.random.default_rng(0)
-    n = 2000
-    columns = [config.record_id_column, *config.model_features, *config.excluded_columns]
-    frame = pd.DataFrame(rng.integers(-2, 50_000, size=(n, len(columns))), columns=columns)
-    frame[config.record_id_column] = np.arange(1, n + 1)
-    frame[config.target_column] = (rng.random(n) < 0.22).astype("int64")
-    return frame
 
 
 @pytest.fixture
