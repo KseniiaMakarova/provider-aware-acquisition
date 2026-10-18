@@ -13,8 +13,11 @@ import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 
+import edu.auk.acquisition.dataset.DatasetAccessMode;
+import edu.auk.acquisition.dataset.RestrictedRecordReader;
+
 @Import(TestcontainersConfiguration.class)
-@SpringBootTest
+@SpringBootTest(properties = TestDataset.FEATURES_DIR_PROPERTY)
 @AutoConfigureMockMvc
 class BackendApplicationTests {
 
@@ -24,6 +27,9 @@ class BackendApplicationTests {
 	@Autowired
 	private MockMvc mockMvc;
 
+	@Autowired
+	private RestrictedRecordReader reader;
+
 	@Test
 	void connectsToPinnedPostgresVersion() {
 		String version = jdbc.queryForObject("SHOW server_version", String.class);
@@ -32,10 +38,16 @@ class BackendApplicationTests {
 	}
 
 	@Test
-	void flywayAppliesBaselineMigration() {
-		Boolean success = jdbc.queryForObject(
-				"SELECT success FROM flyway_schema_history WHERE version = '1'", Boolean.class);
-		assertThat(success).isTrue();
+	void flywayAppliesAllMigrations() {
+		var applied = jdbc.queryForList(
+				"SELECT version FROM flyway_schema_history WHERE success ORDER BY installed_rank", String.class);
+		assertThat(applied).containsExactly("1", "2");
+	}
+
+	@Test
+	void developmentModeServesValidationRecordsByDefault() {
+		assertThat(reader.accessMode()).isEqualTo(DatasetAccessMode.DEVELOPMENT);
+		assertThat(reader.split()).isEqualTo("validation");
 	}
 
 	@Test

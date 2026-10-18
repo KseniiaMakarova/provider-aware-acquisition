@@ -15,6 +15,11 @@ spring:
 acquisition:
   # Paths are relative to the working directory (the backend module when run from Maven or IntelliJ).
   feature-config: ${FEATURE_CONFIG:../config/feature-groups.json}
+  dataset:
+    # DEVELOPMENT reads validation records. FINAL_EVALUATION reads test records and is only
+    # accepted together with the "final-evaluation" Spring profile.
+    access-mode: ${DATASET_ACCESS_MODE:DEVELOPMENT}
+    features-dir: ${DATASET_FEATURES_DIR:../data/features}
   ml-service:
     base-url: ${ML_SERVICE_URL:http://localhost:8000}
     connect-timeout: 1s

@@ -16,7 +16,7 @@ class FeatureConfigurationConfig {
 	/** Loaded once at startup; an invalid file stops the application. */
 	@Bean
 	FeatureConfiguration featureConfiguration(AcquisitionProperties properties) {
-		FeatureConfiguration config = FeatureConfigurationLoader.load(properties.featureConfig());
+		FeatureConfiguration config = FeatureConfigurationLoader.load(properties.featureConfigPath());
 		log.info("Loaded feature configuration {}: {} initial features, providers {}", config.version(),
 				config.initialFeatures().size(), config.providerIds());
 		return config;
