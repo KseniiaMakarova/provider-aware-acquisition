@@ -6,7 +6,8 @@ planned for the next phase.
 
 ## Running
 
-Prerequisite: Node.js 24 (or 22.22 or newer). From `frontend/`:
+Prerequisite: Node.js 24.15 or newer (22.22.3 or newer and 26 or newer also work; tested with
+24.22.0). From `frontend/`:
 
 ```bash
 npm ci        # once, installs the exact versions from package-lock.json

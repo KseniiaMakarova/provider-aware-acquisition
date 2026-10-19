@@ -50,12 +50,12 @@ Details: [docs/architecture.md](docs/architecture.md).
 
 ## Prerequisites
 
-| Tool | Version used | Needed for |
-|---|---|---|
-| Python | 3.13 | Data preparation, training, ML service, smoke test |
-| Docker with Docker Compose | Docker 29, Compose 5 | PostgreSQL, backend tests (Testcontainers), running all services |
-| Java (JDK) | 25 | Backend development (Maven is included as the Maven Wrapper) |
-| Node.js | 24 (or 22.22+) | Frontend development |
+| Tool | Required | Tested with | Needed for |
+|---|---|---|---|
+| Python | 3.13 (3.14 is not supported yet) | 3.13.9 | Data preparation, training, ML service, smoke test |
+| Docker with Docker Compose | A recent version | Docker 29.8, Compose 5.6 | PostgreSQL, backend tests (Testcontainers), running all services |
+| Java (JDK) | 25 | Temurin 25.0.4.1 | Backend development (Maven 3.10 is downloaded by the included Maven Wrapper) |
+| Node.js (includes npm) | 24.15 or newer; 22.22.3 or newer and 26 or newer also work | 24.22.0 (npm 11.19) | Frontend development |
 
 Only Python and Docker are needed to run everything in containers.
 
