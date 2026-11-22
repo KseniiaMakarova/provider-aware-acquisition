@@ -1,7 +1,8 @@
 # Shared configuration
 
-Files read by both the backend (Java) and the ML service (Python). Both sides validate them with
-the same rules and refuse to start if a file is invalid.
+Configuration shared by the services. `feature-groups.json` is read by both the backend (Java) and
+the ML service (Python), which validate it with the same rules; `scenarios/` and `policies/` are
+read by the backend only. Every service refuses to start if a file it reads is invalid.
 
 ## `feature-groups.json`
 

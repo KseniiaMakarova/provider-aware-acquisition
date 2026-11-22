@@ -9,7 +9,7 @@ public enum StopReason {
 	/** No provider is left that is available and not yet attempted (some failed or are unavailable). */
 	NO_FEASIBLE_PROVIDERS,
 
-	/** The policy judged that no further acquisition is worthwhile (adaptive policies, later phases). */
+	/** The policy judged that no further acquisition is worthwhile: no feasible provider has a positive net expected value (adaptive policy). */
 	INSUFFICIENT_EXPECTED_BENEFIT
 
 }

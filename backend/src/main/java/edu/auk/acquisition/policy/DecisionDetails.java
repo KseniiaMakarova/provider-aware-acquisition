@@ -54,7 +54,7 @@ public record DecisionDetails(String policyId, String policyVersion, Map<String,
 	 * @param status             FEASIBLE, ACQUIRED, FAILED_EARLIER or UNAVAILABLE
 	 * @param successProbability {@code s = (1 − failureRate)·(1 − timeoutProbability)}
 	 * @param expectedLatencyMs  mean simulated time of a call, capped at the timeout
-	 * @param price              operational price in bits: {@code λ_cost·s·cost + λ_time·expectedLatency}
+	 * @param price              operational price in bits: {@code λ_cost·s·cost + λ_time·expectedLatencyMs/1000}
 	 * @param score              net expected value in bits: {@code s·EIG − price}
 	 */
 	@JsonIgnoreProperties(ignoreUnknown = true)

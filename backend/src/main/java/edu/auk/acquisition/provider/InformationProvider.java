@@ -5,7 +5,7 @@ import java.util.List;
 /**
  * A logical information source that reveals one group of features per call (FR-1).
  *
- * <p>Implementations are simulated for the Alpha. A remote HTTP provider can implement the same
+ * <p>All current implementations are simulated. A remote HTTP provider can implement the same
  * interface later without changes to the registry, executor or policies.
  */
 public interface InformationProvider {

@@ -432,8 +432,11 @@ The two ML endpoints are not exposed outside the backend network. Errors have th
 | Status | Codes |
 |---|---|
 | 400 | `INVALID_REQUEST` (including unknown fields), `UNSUPPORTED_POLICY`, `UNSUPPORTED_SCENARIO` |
-| 404 | `RECORD_NOT_AVAILABLE` (not in the served split), `SESSION_NOT_FOUND` |
+| 404 | `RECORD_NOT_AVAILABLE` (not in the served split), `SESSION_NOT_FOUND`, `NOT_FOUND` (unknown path) |
+| 405 | `METHOD_NOT_ALLOWED` |
 | 409 | `SESSION_NOT_ACTIVE`, `ADVANCE_IN_PROGRESS`, `ADVANCE_DISCARDED` |
+| 415 | `INVALID_REQUEST` (body is not JSON) |
+| 500 | `INTERNAL_ERROR` (a provider broke its contract, or an unexpected error; details only in the log) |
 | 502 | `ML_SERVICE_REJECTED` |
 | 503 | `ML_SERVICE_UNAVAILABLE` (nothing is created or changed) |
 
@@ -479,8 +482,8 @@ locally and mounted.
 
 | Part | Tests | Main tools |
 |---|---|---|
-| ML service | 190 | pytest; synthetic data for unit tests; real-data tests skip until the data and reference are prepared |
-| Backend | 243, including 3 contract tests that run when the ML service is up | JUnit 5, AssertJ, Mockito, Testcontainers (real PostgreSQL), ArchUnit |
+| ML service | 199 | pytest; synthetic data for unit tests; real-data tests skip until the data and reference are prepared |
+| Backend | 246, including 3 contract tests that run when the ML service is up | JUnit 5, AssertJ, Mockito, Testcontainers (real PostgreSQL), ArchUnit |
 | Frontend | 16 | Vitest, Angular HTTP testing |
 | Whole system | `scripts/smoke_test.py` (39 checks) | A fixed-order session and the MVP checks (adaptive early stop, stop without providers, expensive and unavailable Repayment History, failures and timeouts, full acquisition, no leakage) through the public API |
 

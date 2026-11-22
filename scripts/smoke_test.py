@@ -72,6 +72,11 @@ def request(method: str, url: str, body: dict | None = None) -> tuple[int, dict 
         return status, text
 
 
+def error_code(body: dict | str) -> str | None:
+    """The backend's error code, or None if the body is not the backend's JSON error (e.g. a proxy page)."""
+    return body.get("error") if isinstance(body, dict) else None
+
+
 def wait_until_up(url: str, timeout_s: float) -> None:
     deadline = time.monotonic() + timeout_s
     while time.monotonic() < deadline:
@@ -159,7 +164,7 @@ def run_session(api: str, config: dict, results: Results) -> None:
         raise SmokeTestFailure("session did not stop after every provider was tried")
 
     status, error = request("POST", f"{api}/api/v1/sessions/{session_id}/advance")
-    results.check(status == 409 and error.get("error") == "SESSION_NOT_ACTIVE",
+    results.check(status == 409 and error_code(error) == "SESSION_NOT_ACTIVE",
                   "finished session cannot be advanced (409)", f"{status} {error}")
 
     status, history = request("GET", f"{api}/api/v1/sessions/{session_id}")
@@ -168,7 +173,7 @@ def run_session(api: str, config: dict, results: Results) -> None:
 
     status, error = request("POST", f"{api}/api/v1/sessions",
                             {"recordId": first_record_of("train"), "policyId": "FIXED_ORDER"})
-    results.check(status == 404 and error.get("error") == "RECORD_NOT_AVAILABLE",
+    results.check(status == 404 and error_code(error) == "RECORD_NOT_AVAILABLE",
                   "training-split record is refused (404)", f"{status} {error}")
 
     status, error = request("POST", f"{api}/api/v1/sessions",
@@ -302,6 +307,9 @@ def run_mvp_checks(api: str, config: dict, results: Results) -> None:
     for record in records:
         session = sessions.play(record, "FULL_ACQUISITION", "unreliable-v1")
         successes = [s for s in session["steps"] if s["status"] == "SUCCESS"]
+        attempted = [s["providerId"] for s in session["steps"]]
+        if len(attempted) != len(set(attempted)):
+            raise SmokeTestFailure(f"a provider was called more than once: {session['sessionId']} {attempted}")
         for step in session["steps"]:
             if step["status"] == "SUCCESS":
                 continue
@@ -368,7 +376,7 @@ def main(argv: list[str] | None = None) -> int:
         run_session(api, config, results)
         print(f"Running the MVP checks through {api}")
         run_mvp_checks(api, config, results)
-    except SmokeTestFailure as failure:
+    except (SmokeTestFailure, urllib.error.URLError, ConnectionError, TimeoutError) as failure:
         print(f"  FAIL  {failure}")
         print(f"Smoke test FAILED after {results.passed} passed checks")
         return 1

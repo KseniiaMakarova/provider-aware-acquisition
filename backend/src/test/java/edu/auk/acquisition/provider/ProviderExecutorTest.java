@@ -186,4 +186,11 @@ class ProviderExecutorTest {
 		assertThat(expensive.execute("PAYMENT_HISTORY", "101", Set.of()).chargedCost()).isEqualByComparingTo("9");
 	}
 
+	@Test
+	void failedResultWithoutAReasonIsRejected() {
+		assertThatThrownBy(() -> ProviderResult.failure(null, 200)).isInstanceOf(IllegalArgumentException.class);
+		assertThatThrownBy(() -> new ProviderResult(false, Map.of(), 200, " "))
+			.isInstanceOf(IllegalArgumentException.class);
+	}
+
 }

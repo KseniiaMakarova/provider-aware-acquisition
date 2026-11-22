@@ -68,7 +68,7 @@ def sample_records(records: pd.DataFrame, n: int) -> pd.DataFrame:
 
 def analyse(data_dir: Path, artifacts: Path, config: FeatureConfig, n_records: int, sample_size: int) -> dict:
     deployed = load_deployed_model(artifacts, config)
-    reference = load_value_reference(artifacts, config)
+    reference = load_value_reference(artifacts, config, deployed.metadata)
     if reference is None:
         raise SystemExit("No value reference; run python -m ml_service.training.reference first")
     predictor = Predictor(deployed, config)

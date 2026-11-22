@@ -47,7 +47,7 @@ Policies:
 
 | Policy | Behavior |
 |---|---|
-| `ADAPTIVE` | Asks the ML service for the expected information gain of each feasible provider and acquires the one with the highest positive score `s·EIG − λ_cost·s·cost − λ_time·latency`, where `s = (1 − failure rate)·(1 − timeout probability)` and the latency is the mean simulated time of a call, capped at the timeout (without timeouts and jitter: `(1 − f)·EIG − λ_cost·(1 − f)·cost − λ_time·latency`); stops with `INSUFFICIENT_EXPECTED_BENEFIT` when no score is positive. Parameters in `../config/policies/adaptive-v1.json` |
+| `ADAPTIVE` | Asks the ML service for the expected information gain of each feasible provider and acquires the one with the highest positive score `s·EIG − λ_cost·s·cost − λ_time·latency`, where `s = (1 − failure rate)·(1 − timeout probability)` and the latency is the mean simulated time of a call in seconds, capped at the timeout (without timeouts and jitter: `(1 − f)·EIG − λ_cost·(1 − f)·cost − λ_time·latency`); stops with `INSUFFICIENT_EXPECTED_BENEFIT` when no score is positive. Parameters in `../config/policies/adaptive-v1.json` |
 | `FIXED_ORDER` | Providers in configuration order until none is left |
 | `FULL_ACQUISITION` | Reference: every available provider, in configuration order. Without budgets it acquires the same providers as `FIXED_ORDER` |
 

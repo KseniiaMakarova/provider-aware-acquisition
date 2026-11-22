@@ -30,7 +30,7 @@ export interface ProviderInfo extends ProviderCharacteristics {
 
 export interface ScenarioInfo {
   id: string;
-  description: string;
+  description: string | null;
   seed: number;
   providers: ProviderInfo[];
 }

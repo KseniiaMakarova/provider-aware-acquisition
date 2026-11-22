@@ -2,7 +2,8 @@
 # All services:                                       docker compose --profile app up -d --build
 #
 # The full stack needs the generated files first: data/features/validation.csv
-# (python -m ml_service.data.prepare) and ml-service/artifacts (python -m ml_service.training.train).
+# (python -m ml_service.data.prepare) and ml-service/artifacts (python -m ml_service.training.train,
+# then python -m ml_service.training.reference for the adaptive policy).
 # Each service gets only the files it needs, read-only: the ML service sees model artifacts but no
 # data; the backend sees the label-free validation features but no labels, training or test records.
 

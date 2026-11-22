@@ -17,6 +17,7 @@ import tools.jackson.databind.json.JsonMapper;
 
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import edu.auk.acquisition.feature.FeatureConfiguration;
@@ -31,7 +32,10 @@ import edu.auk.acquisition.session.SessionHistory;
 import edu.auk.acquisition.session.SessionRepository;
 import edu.auk.acquisition.session.SessionStatus;
 
-/** Stores sessions with plain SQL; JSONB columns hold only observed values and masks. */
+/**
+ * Stores sessions with plain SQL. JSONB columns hold only observed values and masks, the session's
+ * scenario snapshot and the policy's decision details; never unacquired values or labels.
+ */
 @Repository
 class JdbcSessionRepository implements SessionRepository {
 
@@ -188,8 +192,12 @@ class JdbcSessionRepository implements SessionRepository {
 			.update();
 	}
 
+	/**
+	 * Reads the session, its predictions and its steps from one snapshot (REPEATABLE READ), so a
+	 * concurrent save of an advance is seen completely or not at all.
+	 */
 	@Override
-	@Transactional(readOnly = true)
+	@Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
 	public Optional<SessionHistory> find(UUID sessionId) {
 		Optional<AcquisitionSession> session = jdbc.sql("SELECT * FROM acquisition_session WHERE id = :id")
 			.param("id", sessionId)

@@ -45,7 +45,7 @@ Details: [docs/architecture.md](docs/architecture.md).
 | [`backend/`](backend/README.md) | Spring Boot application: REST API, sessions, policies, providers, persistence |
 | [`ml-service/`](ml-service/README.md) | Python: data preparation, model training and analysis, FastAPI prediction service |
 | [`frontend/`](frontend/README.md) | Angular application |
-| [`config/`](config/README.md) | Feature grouping and provider scenarios shared by Java and Python |
+| [`config/`](config/README.md) | Feature grouping (shared by Java and Python), provider scenarios and adaptive policy parameters |
 | [`data/`](data/README.md) | Dataset provenance and split manifest (the data itself is downloaded) |
 | [`docs/`](docs/architecture.md) | Architecture and design decisions ([`docs/decisions/`](docs/decisions)) |
 | `scripts/smoke_test.py` | End-to-end check of the running platform |

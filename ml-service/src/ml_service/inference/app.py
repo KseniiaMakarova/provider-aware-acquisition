@@ -40,8 +40,9 @@ def create_app(artifacts: Path | None = None, config: FeatureConfig | None = Non
     """
     config = config or load_feature_config()
     artifacts = artifacts or default_artifacts_dir()
-    predictor = Predictor(load_deployed_model(artifacts, config), config)
-    reference = load_value_reference(artifacts, config)
+    deployed = load_deployed_model(artifacts, config)
+    predictor = Predictor(deployed, config)
+    reference = load_value_reference(artifacts, config, deployed.metadata)
     estimator = ValueEstimator(predictor, reference) if reference else None
 
     app = FastAPI(title="Provider-aware acquisition ML service", version="1")

@@ -121,6 +121,8 @@ fixes both.
   sample; gains below about 0.005 bits are mostly noise.
 - **Depends on the model's probabilities** and on the training and validation data coming from the
   same population.
+- **Neighbors come from the model's own training records:** the sampled predictions may therefore
+  be somewhat more confident than on new data, which could bias EIG; this has not been measured.
 - **Uncertainty, not decisions:** EIG measures uncertainty reduction; no misclassification costs
   are defined, and the coefficients are not calibrated economic values.
 

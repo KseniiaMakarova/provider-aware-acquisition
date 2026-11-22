@@ -22,7 +22,8 @@ public interface PredictionClient {
 	/**
 	 * Estimates the expected value of acquiring each candidate provider in the observed state.
 	 *
-	 * @param candidateProviders providers not acquired yet, in the order the estimates are returned
+	 * @param candidateProviders feasible providers (available and not yet attempted), in the order the
+	 *                           estimates are returned
 	 * @param sampleSize         number of reference records the estimate uses (K)
 	 * @throws PredictionRejectedException    if the service rejects the observation or candidates
 	 * @throws PredictionUnavailableException  if the service cannot be reached, has no value reference,
