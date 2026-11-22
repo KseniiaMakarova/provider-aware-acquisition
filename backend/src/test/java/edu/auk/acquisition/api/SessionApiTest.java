@@ -220,6 +220,27 @@ class SessionApiTest {
 		mvc.perform(get("/api/v1/sessions/not-a-uuid")).andExpect(status().isBadRequest());
 	}
 
+	@Test
+	void unknownPathAndWrongMethodUseTheSameErrorBody() throws Exception {
+		mvc.perform(get("/api/v1/unknown"))
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.error").value("NOT_FOUND"))
+			.andExpect(jsonPath("$.message").isString());
+		mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete("/api/v1/sessions"))
+			.andExpect(status().isMethodNotAllowed())
+			.andExpect(jsonPath("$.error").value("METHOD_NOT_ALLOWED"));
+	}
+
+	@Test
+	void unexpectedErrorsAreInternalErrorsWithoutDetails() throws Exception {
+		when(predictionClient.predict(any())).thenThrow(new IllegalStateException("secret detail"));
+		createSession("""
+				{"recordId": "101", "policyId": "FIXED_ORDER"}
+				""").andExpect(status().isInternalServerError())
+			.andExpect(jsonPath("$.error").value("INTERNAL_ERROR"))
+			.andExpect(jsonPath("$.message").value("Unexpected error; see the backend log"));
+	}
+
 	// --- Providers ---
 
 	@Test

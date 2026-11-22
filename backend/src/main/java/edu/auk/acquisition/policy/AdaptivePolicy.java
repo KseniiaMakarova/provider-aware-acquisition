@@ -15,13 +15,13 @@ import edu.auk.acquisition.provider.ProviderMetadata;
  * observed state with the provider's operational characteristics:
  *
  * <pre>
- * price_g = λ_cost · s_g · cost_g + λ_time · latencySeconds_g
+ * price_g = λ_cost · s_g · cost_g + λ_time · E[time_g]
  * score_g = s_g · EIG_g − price_g
  * </pre>
  *
  * where {@code s_g = (1 − f_g)·(1 − t_g)} is the probability that the call succeeds ({@code f_g}:
- * failure rate, {@code t_g}: probability of a simulated timeout) and the latency is the mean
- * simulated time of a call, capped at the timeout. Without timeouts and jitter this is exactly
+ * failure rate, {@code t_g}: probability of a simulated timeout) and {@code E[time_g]} is the mean
+ * simulated time of a call in seconds, capped at the timeout. Without timeouts and jitter this is exactly
  * {@code (1 − f_g)·EIG_g − λ_cost·(1 − f_g)·cost_g − λ_time·latency_g}. A failed or timed-out call
  * reveals nothing and costs nothing, but its time is still spent, matching the simulation's
  * charging rules. The policy acquires the provider with the highest strictly positive score (ties:

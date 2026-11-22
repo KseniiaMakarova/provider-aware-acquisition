@@ -1,6 +1,6 @@
 {
   "policyVersion": "adaptive-v1",
-  "description": "Initial provider-aware adaptive policy. score = (1 - failureRate) * EIG - costWeight * (1 - failureRate) * cost - latencyWeight * latencySeconds; acquire the highest positive score, otherwise stop. Provisional experimental parameters chosen from an exploratory validation analysis, not calibrated or optimal values.",
+  "description": "Initial provider-aware adaptive policy. s = (1 - failureRate) * (1 - timeoutProbability); score = s * EIG - costWeight * s * cost - latencyWeight * expectedSeconds, where expectedSeconds is the mean simulated time of a call, capped at the timeout; acquire the highest positive score, otherwise stop. Provisional experimental parameters chosen from an exploratory validation analysis, not calibrated or optimal values.",
   "sampleSize": 100,
   "costWeightBitsPerUnit": 0.01,
   "latencyWeightBitsPerSecond": 0.005

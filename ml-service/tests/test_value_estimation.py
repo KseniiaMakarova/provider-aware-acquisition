@@ -10,7 +10,7 @@ import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
 
-from ml_service.artifacts import DeployedModel
+from ml_service.artifacts import DeployedModel, load_deployed_model
 from ml_service.inference.app import create_app
 from ml_service.inference.predictor import Predictor
 from ml_service.inference.value import METHOD, ValueEstimator, binary_entropy_bits
@@ -20,7 +20,7 @@ from ml_service.training.train import load_split
 from ml_service.value_reference import (
     METADATA_FILE,
     VALUES_FILE,
-    ReferenceError,
+    ValueReferenceError,
     load_value_reference,
     reference_dir,
 )
@@ -38,15 +38,17 @@ def artifacts(trained, data_dir, config, tmp_path_factory):
     return out
 
 
+def model_metadata(artifacts, config):
+    return load_deployed_model(artifacts, config).metadata
+
+
 @pytest.fixture(scope="module")
 def reference(artifacts, config):
-    return load_value_reference(artifacts, config)
+    return load_value_reference(artifacts, config, model_metadata(artifacts, config))
 
 
 @pytest.fixture(scope="module")
 def estimator(artifacts, config, reference):
-    from ml_service.artifacts import load_deployed_model
-
     return ValueEstimator(Predictor(load_deployed_model(artifacts, config), config), reference)
 
 
@@ -106,9 +108,9 @@ def test_builder_reads_only_the_training_split(data_dir, config, tmp_path, monke
     assert read == ["train"]
 
 
-def test_reference_version_is_deterministic(data_dir, config, tmp_path, artifacts):
+def test_reference_version_is_deterministic(data_dir, config, tmp_path, reference):
     rebuilt = build_reference(data_dir, tmp_path, config)
-    assert rebuilt["referenceVersion"] == load_value_reference(artifacts, config).version
+    assert rebuilt["referenceVersion"] == reference.version
     assert rebuilt["referenceVersion"].startswith(f"ref-{config.version}-")
 
 
@@ -122,8 +124,8 @@ def test_loader_rejects_a_reference_of_another_feature_configuration(artifacts, 
     metadata = json.loads((directory / METADATA_FILE).read_text())
     metadata["featureConfigVersion"] = "fg-other"
     (directory / METADATA_FILE).write_text(json.dumps(metadata))
-    with pytest.raises(ReferenceError, match="fg-other"):
-        load_value_reference(tmp_path, config)
+    with pytest.raises(ValueReferenceError, match="fg-other"):
+        load_value_reference(tmp_path, config, model_metadata(artifacts, config))
 
 
 def test_loader_rejects_a_reference_with_extra_arrays(artifacts, config, tmp_path):
@@ -131,12 +133,53 @@ def test_loader_rejects_a_reference_with_extra_arrays(artifacts, config, tmp_pat
     with np.load(directory / VALUES_FILE) as data:
         values = data["values"]
     np.savez_compressed(directory / VALUES_FILE, values=values, labels=np.zeros(len(values)))
-    with pytest.raises(ReferenceError, match="only feature values"):
-        load_value_reference(tmp_path, config)
+    with pytest.raises(ValueReferenceError, match="only feature values"):
+        load_value_reference(tmp_path, config, model_metadata(artifacts, config))
 
 
-def test_missing_reference_loads_as_none(config, tmp_path):
-    assert load_value_reference(tmp_path, config) is None
+def test_missing_reference_loads_as_none(artifacts, config, tmp_path):
+    assert load_value_reference(tmp_path, config, model_metadata(artifacts, config)) is None
+
+
+def change_metadata(metadata, key, value):
+    if value is None:
+        del metadata[key]
+    else:
+        metadata[key] = value
+
+
+@pytest.mark.parametrize(
+    ("key", "value", "fragment"),
+    [
+        ("splitManifestSha256", "0" * 64, "different data"),
+        ("datasetArchiveSha256", "0" * 64, "different data"),
+        ("split", "validation", "training split"),
+        ("valuesSha256", "0" * 64, "checksum"),
+        ("std", [0.0] * 19, "positive deviations"),
+        ("mean", [0.0] * 3, "scaling parameters"),
+        ("transforms", {}, "transforms"),
+        ("splitManifestSha256", None, "missing"),
+    ],
+    ids=["other-split-manifest", "other-dataset", "not-train", "values-changed", "zero-std", "short-mean",
+         "no-transforms", "missing-key"],
+)
+def test_loader_rejects_a_reference_that_does_not_match(artifacts, config, tmp_path, key, value, fragment):
+    directory = copy_reference(artifacts, tmp_path)
+    metadata = json.loads((directory / METADATA_FILE).read_text())
+    change_metadata(metadata, key, value)
+    (directory / METADATA_FILE).write_text(json.dumps(metadata))
+    with pytest.raises(ValueReferenceError, match=fragment):
+        load_value_reference(tmp_path, config, model_metadata(artifacts, config))
+
+
+def test_startup_fails_for_a_reference_built_from_another_split(artifacts, config, tmp_path):
+    shutil.copytree(artifacts, tmp_path, dirs_exist_ok=True)
+    metadata_file = reference_dir(tmp_path) / METADATA_FILE
+    metadata = json.loads(metadata_file.read_text())
+    metadata["splitManifestSha256"] = "0" * 64
+    metadata_file.write_text(json.dumps(metadata))
+    with pytest.raises(ValueReferenceError, match="different data"):
+        create_app(tmp_path, config)
 
 
 # --- Estimator ---
@@ -228,13 +271,13 @@ def test_group_that_changes_the_prediction_has_positive_gain(stub_estimator, con
 # --- Endpoint ---
 
 
-def test_endpoint_returns_estimates_with_versions(client, artifacts, config, record, estimator):
+def test_endpoint_returns_estimates_with_versions(client, reference, config, record, estimator):
     response = client.post(VALUE, json=value_request(record, config, sampleSize=40))
     assert response.status_code == 200
     body = response.json()
     assert body["method"] == METHOD
     assert body["sampleSize"] == 40
-    assert body["referenceVersion"] == load_value_reference(artifacts, config).version
+    assert body["referenceVersion"] == reference.version
     assert body["featureConfigVersion"] == config.version
     assert [e["providerId"] for e in body["estimates"]] == list(config.provider_ids)
     observed, mask = observation(record, config, ())
@@ -248,8 +291,8 @@ def test_default_sample_size_is_100(client, config, record):
     assert client.post(VALUE, json=value_request(record, config)).json()["sampleSize"] == 100
 
 
-def test_health_reports_the_reference_version(client, artifacts, config):
-    assert client.get("/health").json()["valueReferenceVersion"] == load_value_reference(artifacts, config).version
+def test_health_reports_the_reference_version(client, reference):
+    assert client.get("/health").json()["valueReferenceVersion"] == reference.version
 
 
 @pytest.mark.parametrize(
@@ -318,5 +361,5 @@ def test_startup_fails_for_a_reference_of_another_feature_configuration(artifact
     metadata = json.loads(metadata_file.read_text())
     metadata["featureConfigVersion"] = "fg-other"
     metadata_file.write_text(json.dumps(metadata))
-    with pytest.raises(ReferenceError):
+    with pytest.raises(ValueReferenceError):
         create_app(tmp_path, config)

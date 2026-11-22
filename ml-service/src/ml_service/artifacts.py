@@ -33,10 +33,6 @@ class DeployedModel:
     metadata: dict
 
 
-def read_metadata(artifacts: Path, version: str) -> dict:
-    return json.loads((artifacts / MODELS_DIR / version / METADATA_FILE).read_text(encoding="utf-8"))
-
-
 def load_deployed_model(artifacts: Path, config: FeatureConfig) -> DeployedModel:
     """Load the model named by ``deployed.json`` and check it was trained for this configuration."""
     pointer_path = artifacts / DEPLOYED_FILE

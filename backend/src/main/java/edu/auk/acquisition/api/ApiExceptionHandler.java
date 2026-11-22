@@ -6,8 +6,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.ErrorResponse;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -111,6 +113,26 @@ class ApiExceptionHandler {
 	ResponseEntity<ApiError> mlRejected(PredictionRejectedException e) {
 		log.error("ML service rejected a request from the backend: {}", e.getMessage());
 		return error(HttpStatus.BAD_GATEWAY, "ML_SERVICE_REJECTED", e.getMessage());
+	}
+
+	/**
+	 * Everything else: Spring's own request errors (unknown path, wrong method, ...) keep their
+	 * status; any other exception is an internal error, logged with its stack trace.
+	 */
+	@ExceptionHandler(Exception.class)
+	ResponseEntity<ApiError> other(Exception e) {
+		if (e instanceof ErrorResponse response && response.getStatusCode().is4xxClientError()) {
+			HttpStatusCode status = response.getStatusCode();
+			String code = switch (status.value()) {
+				case 404 -> "NOT_FOUND";
+				case 405 -> "METHOD_NOT_ALLOWED";
+				default -> "INVALID_REQUEST";
+			};
+			String detail = response.getBody().getDetail();
+			return ResponseEntity.status(status).body(new ApiError(code, detail != null ? detail : e.getMessage()));
+		}
+		log.error("Unexpected error", e);
+		return error(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", "Unexpected error; see the backend log");
 	}
 
 	private static ResponseEntity<ApiError> error(HttpStatus status, String code, String message) {

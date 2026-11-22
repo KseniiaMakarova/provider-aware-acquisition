@@ -28,13 +28,13 @@ from ml_service.training.train import load_split
 from ml_service.value_reference import (
     IDENTITY,
     METADATA_FILE,
+    REFERENCE_SPLIT,
     SIGNED_LOG1P,
     TRANSFORMS,
     VALUES_FILE,
     reference_dir,
+    values_sha256,
 )
-
-REFERENCE_SPLIT = "train"
 
 
 def feature_transforms(config: FeatureConfig) -> dict[str, str]:
@@ -62,7 +62,7 @@ def build_reference(data_dir: Path, artifacts: Path, config: FeatureConfig) -> d
         "rowCount": len(values),
         "features": features,
         "transforms": transforms,
-        "valuesSha256": hashlib.sha256(np.ascontiguousarray(values).tobytes()).hexdigest(),
+        "valuesSha256": values_sha256(values),
     }
     fingerprint = hashlib.sha256(json.dumps(provenance, sort_keys=True).encode()).hexdigest()
     metadata = {

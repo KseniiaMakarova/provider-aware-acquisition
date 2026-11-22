@@ -5,7 +5,6 @@ import pytest
 from fastapi.testclient import TestClient
 
 from ml_service.artifacts import DEPLOYED_FILE, load_deployed_model
-from ml_service.config import load_feature_config
 from ml_service.encoding import encode_state
 from ml_service.inference.app import create_app
 from ml_service.paths import artifacts_dir, data_dir
@@ -48,15 +47,14 @@ def test_service_matches_direct_model_predictions_on_validation_records(client, 
 # --- Value reference (after python -m ml_service.training.reference) ---
 
 needs_reference = pytest.mark.skipif(
-    load_value_reference(ARTIFACTS, load_feature_config()) is None
-    if (ARTIFACTS / DEPLOYED_FILE).exists() else True,
+    not (ARTIFACTS / "value-reference" / "metadata.json").exists(),
     reason="no value reference; run python -m ml_service.training.reference",
 )
 
 
 @needs_reference
 def test_value_reference_is_the_training_split_features(config):
-    reference = load_value_reference(ARTIFACTS, config)
+    reference = load_value_reference(ARTIFACTS, config, load_deployed_model(ARTIFACTS, config).metadata)
     train = load_split(data_dir(), "train")
     assert reference.metadata["split"] == "train"
     assert reference.values.shape == (len(train), len(config.model_features)) == (21000, 19)

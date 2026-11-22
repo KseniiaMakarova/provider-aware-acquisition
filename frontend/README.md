@@ -4,7 +4,8 @@ Angular 22 application (standalone components, signals, no zone.js, Vitest for t
 page, the acquisition session:
 
 - **Start:** record ID from the validation split, policy and provider scenario, all read from the
-  backend (`/api/v1/policies`, `/api/v1/scenarios`), with the scenario's provider characteristics.
+  backend (`/api/v1/policies`, `/api/v1/scenarios`, and `/api/v1/providers` for the feature names), with
+  the scenario's provider characteristics.
 - **Session:** current probability of default, providers acquired, calls, total cost and simulated
   time; **Next step** (one `/advance`) and **Run to end** (repeated `/advance` until the policy
   stops, each request still one decision); the stop reason and its explanation.

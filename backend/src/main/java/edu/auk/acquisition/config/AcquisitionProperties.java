@@ -25,7 +25,9 @@ import org.springframework.validation.annotation.Validated;
  * @param adaptivePolicyConfig path of the versioned adaptive policy settings
  * @param mlService            connection settings for the Python inference service
  * @param advanceLease         how long one /advance may hold its claim on a session before another
- *                             request may take over; must exceed the ML read timeout
+ *                             request may take over; must exceed the longest possible advance (an
+ *                             adaptive advance makes two ML calls, each up to the connect plus
+ *                             read timeout)
  */
 @Validated
 @ConfigurationProperties("acquisition")

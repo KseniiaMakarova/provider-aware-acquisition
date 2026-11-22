@@ -118,7 +118,8 @@ service still predicts, and this endpoint answers 503 `VALUE_REFERENCE_UNAVAILAB
 ```
 
 Most tests use small synthetic datasets. Tests marked `requires_data` check the real prepared data
-and the deployed model; they are skipped until the two pipeline commands have been run.
+and the deployed model; they are skipped until the pipeline commands have been run (the value
+reference tests also need `python -m ml_service.training.reference`).
 
 ## Docker image
 

@@ -9,6 +9,10 @@ public record ProviderResult(boolean success, Map<String, Double> values, long s
 		String failureReason) {
 
 	public ProviderResult {
+		if (!success && (failureReason == null || failureReason.isBlank())) {
+			// A failed step is stored with its reason; without one it could not be saved.
+			throw new IllegalArgumentException("A failed provider call needs a reason");
+		}
 		// Keeps the provider's feature order (Map.copyOf would not), so responses are deterministic.
 		values = values == null ? Map.of() : Collections.unmodifiableMap(new LinkedHashMap<>(values));
 	}

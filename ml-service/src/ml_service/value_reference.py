@@ -10,6 +10,7 @@ It must not import data or training code.
 
 from __future__ import annotations
 
+import hashlib
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -22,14 +23,30 @@ from ml_service.transforms import signed_log1p
 REFERENCE_DIR = "value-reference"
 VALUES_FILE = "reference.npz"
 METADATA_FILE = "metadata.json"
+REFERENCE_SPLIT = "train"
 
 SIGNED_LOG1P = "signed_log1p"
 IDENTITY = "identity"
 TRANSFORMS = {SIGNED_LOG1P: signed_log1p, IDENTITY: lambda x: x}
 
+# The reference and the deployed model must come from the same dataset and the same split.
+PROVENANCE_KEYS = ("datasetArchiveSha256", "splitManifestSha256")
+REQUIRED_KEYS = (
+    "referenceVersion",
+    "featureConfigVersion",
+    "split",
+    "rowCount",
+    "features",
+    "transforms",
+    "valuesSha256",
+    "mean",
+    "std",
+    *PROVENANCE_KEYS,
+)
 
-class ReferenceError(RuntimeError):
-    """Raised when the reference artifact does not match the feature configuration."""
+
+class ValueReferenceError(RuntimeError):
+    """Raised when the reference artifact is invalid or does not match the configuration or model."""
 
 
 @dataclass(frozen=True)
@@ -60,31 +77,58 @@ def reference_dir(artifacts: Path) -> Path:
     return artifacts / REFERENCE_DIR
 
 
-def load_value_reference(artifacts: Path, config: FeatureConfig) -> ValueReference | None:
+def values_sha256(values: np.ndarray) -> str:
+    return hashlib.sha256(np.ascontiguousarray(values, dtype="float64").tobytes()).hexdigest()
+
+
+def load_value_reference(artifacts: Path, config: FeatureConfig, model_metadata: dict) -> ValueReference | None:
     """Load the reference, or return None if it has not been built.
 
-    Raises ReferenceError if it exists but was built for another feature configuration.
+    ``model_metadata`` is the metadata of the deployed model. The reference must have been built
+    from the training split of the same dataset and split as that model; otherwise records that
+    the backend serves could be in the reference, together with their hidden values.
+
+    Raises ValueReferenceError if the reference exists but is invalid or does not match.
     """
     directory = reference_dir(artifacts)
     if not (directory / METADATA_FILE).exists():
         return None
     metadata = json.loads((directory / METADATA_FILE).read_text(encoding="utf-8"))
+    missing = [key for key in REQUIRED_KEYS if key not in metadata]
+    if missing:
+        raise ValueReferenceError(f"Value reference metadata is missing {missing}")
     if metadata["featureConfigVersion"] != config.version:
-        raise ReferenceError(
+        raise ValueReferenceError(
             f"Value reference {metadata['referenceVersion']} was built for feature configuration "
             f"{metadata['featureConfigVersion']}, but {config.version} is loaded"
         )
+    if metadata["split"] != REFERENCE_SPLIT:
+        raise ValueReferenceError(f"Value reference must be built from the training split, not {metadata['split']}")
+    for key in PROVENANCE_KEYS:
+        if metadata[key] != model_metadata.get(key):
+            raise ValueReferenceError(
+                f"Value reference {metadata['referenceVersion']} and the deployed model come from different data "
+                f"({key}); rebuild it with python -m ml_service.training.reference"
+            )
     features = tuple(metadata["features"])
     if features != config.model_features:
-        raise ReferenceError("Value reference features do not match the model features of the configuration")
+        raise ValueReferenceError("Value reference features do not match the model features of the configuration")
     with np.load(directory / VALUES_FILE, allow_pickle=False) as data:
         if set(data.files) != {"values"}:
-            raise ReferenceError(f"Value reference must contain only feature values, found {sorted(data.files)}")
+            raise ValueReferenceError(f"Value reference must contain only feature values, found {sorted(data.files)}")
         values = data["values"].astype("float64")
     if values.shape != (metadata["rowCount"], len(features)) or not np.isfinite(values).all():
-        raise ReferenceError("Value reference values do not match its metadata")
+        raise ValueReferenceError("Value reference values do not match its metadata")
+    if values_sha256(values) != metadata["valuesSha256"]:
+        raise ValueReferenceError("Value reference values do not match their recorded checksum")
+    if set(metadata["transforms"]) != set(features) or not set(metadata["transforms"].values()) <= set(TRANSFORMS):
+        raise ValueReferenceError("Value reference transforms are missing or unknown")
     transforms = tuple(metadata["transforms"][f] for f in features)
-    mean, std = np.array(metadata["mean"]), np.array(metadata["std"])
+    mean, std = np.array(metadata["mean"], dtype="float64"), np.array(metadata["std"], dtype="float64")
+    if mean.shape != (len(features),) or std.shape != (len(features),):
+        raise ValueReferenceError("Value reference scaling parameters do not match its features")
+    if not (np.isfinite(mean).all() and np.isfinite(std).all() and (std > 0).all()):
+        raise ValueReferenceError("Value reference scaling parameters must be finite, with positive deviations")
     return ValueReference(
         version=metadata["referenceVersion"],
         features=features,
