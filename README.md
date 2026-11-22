@@ -130,7 +130,8 @@ the Python interpreter of the `ml-service` module.
 Open http://localhost:4200, choose a validation record (for example 4, 12, 18, 27 or 150), a policy
 and a provider scenario, start the session and press **Next step** or **Run to end**.
 
-Run the end-to-end checks (a fixed-order session and the MVP scenarios, 39 checks):
+Run the end-to-end checks (a fixed-order session and the MVP scenarios: 36 checks, plus one for the
+frontend page with `--compose`):
 
 ```bash
 python scripts/smoke_test.py            # services already running (option A or B)
