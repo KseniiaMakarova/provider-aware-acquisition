@@ -1,0 +1,287 @@
+:host {
+  display: block;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.card {
+  background: #fff;
+  border: 1px solid #dde1e6;
+  border-radius: 8px;
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.25rem;
+}
+
+h2,
+h3,
+h4 {
+  margin: 0 0 0.5rem;
+}
+
+h3 {
+  font-size: 1.05rem;
+}
+
+h4 {
+  font-size: 0.95rem;
+}
+
+.hint,
+.meta {
+  color: #5a6270;
+  font-size: 0.875rem;
+  margin: 0.25rem 0 0.75rem;
+}
+
+.error {
+  background: #fdecea;
+  border: 1px solid #f5c2c0;
+  color: #8a1c14;
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.start-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  max-width: 720px;
+}
+
+.start-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-weight: 600;
+  margin-top: 0.5rem;
+}
+
+input,
+select {
+  font: inherit;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid #c4c9d1;
+  border-radius: 4px;
+  max-width: 320px;
+}
+
+button {
+  font: inherit;
+  padding: 0.45rem 1rem;
+  border-radius: 4px;
+  border: 1px solid #1f5fae;
+  background: #fff;
+  color: #1f5fae;
+  cursor: pointer;
+}
+
+button.primary {
+  background: #1f5fae;
+  color: #fff;
+}
+
+button.secondary {
+  border-color: #8a929e;
+  color: #3c4350;
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+button.link {
+  border: none;
+  padding: 0 0.25rem;
+  text-decoration: underline;
+}
+
+.start-form button.primary {
+  align-self: flex-start;
+  margin-top: 1rem;
+}
+
+.session-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.status {
+  padding: 0.2rem 0.7rem;
+  border-radius: 999px;
+  background: #e3f1e5;
+  color: #20683a;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.status.finished {
+  background: #e8eaee;
+  color: #3c4350;
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0.5rem 0 1rem;
+}
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.75rem;
+}
+
+.tile {
+  background: #f4f6f9;
+  border-radius: 6px;
+  padding: 0.6rem 0.8rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.tile-label {
+  font-size: 0.8rem;
+  color: #5a6270;
+}
+
+.tile-value {
+  font-size: 1.35rem;
+  font-weight: 600;
+}
+
+.stop {
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  background: #fff7e0;
+  border: 1px solid #f0dc9c;
+  border-radius: 6px;
+}
+
+.stop p {
+  margin: 0.25rem 0 0;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.875rem;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 0.35rem 0.5rem;
+  border-bottom: 1px solid #e6e9ed;
+  vertical-align: top;
+}
+
+th {
+  color: #5a6270;
+  font-weight: 600;
+}
+
+table.compact {
+  max-width: 720px;
+  margin-bottom: 0.5rem;
+}
+
+tr.selected td {
+  background: #e8f1fb;
+  font-weight: 600;
+}
+
+tr.failed td {
+  color: #8a1c14;
+}
+
+td.negative {
+  color: #8a1c14;
+}
+
+td.reason {
+  max-width: 420px;
+}
+
+.groups {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+}
+
+.group {
+  border: 1px solid #dde1e6;
+  border-left-width: 4px;
+  border-radius: 6px;
+  padding: 0.6rem 0.9rem;
+}
+
+.group.acquired {
+  border-left-color: #2e8b57;
+}
+
+.group.not_acquired {
+  border-left-color: #b0b6bf;
+  background: #fafbfc;
+}
+
+.group.failed {
+  border-left-color: #c0392b;
+}
+
+.group.unavailable {
+  border-left-color: #8a929e;
+  background: #f1f2f4;
+}
+
+.badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: #e8eaee;
+  margin-left: 0.25rem;
+}
+
+dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.15rem 1rem;
+  margin: 0.25rem 0 0;
+  font-size: 0.875rem;
+}
+
+dt {
+  color: #5a6270;
+}
+
+dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.hidden-note {
+  color: #8a929e;
+  font-style: italic;
+  font-size: 0.875rem;
+  margin: 0.25rem 0 0;
+}
+
+.failure {
+  color: #8a1c14;
+  font-size: 0.85rem;
+  margin: 0.25rem 0 0;
+}
+
+.bar-column {
+  width: 45%;
+}
+
+.bar {
+  display: inline-block;
+  height: 0.8rem;
+  background: #1f5fae;
+  border-radius: 2px;
+}

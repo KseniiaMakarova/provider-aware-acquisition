@@ -1,0 +1,299 @@
+@if (error(); as message) {
+  <div class="error" role="alert">{{ message }}</div>
+}
+
+@if (!session()) {
+  <section class="card">
+    <h2>Start an acquisition session</h2>
+    <p class="hint">
+      The session starts with the initial information of a record and lets the chosen policy decide, step by
+      step, which provider to query next or when to stop.
+    </p>
+    <form class="start-form" (submit)="$event.preventDefault(); start()">
+      <label>
+        Record ID (validation split)
+        <input name="recordId" [value]="recordId()" (input)="recordId.set(inputValue($event))" />
+      </label>
+      <p class="hint examples">
+        Examples:
+        @for (example of examples; track example) {
+          <button type="button" class="link" (click)="recordId.set(example)">{{ example }}</button>
+        }
+      </p>
+
+      <label>
+        Policy
+        <select name="policyId" (change)="policyId.set(inputValue($event))">
+          @for (policy of policies(); track policy.id) {
+            <option [value]="policy.id" [selected]="policy.id === policyId()">{{ policy.id }}</option>
+          }
+        </select>
+      </label>
+      @if (selectedPolicy(); as policy) {
+        <p class="hint">{{ policy.description }} ({{ policy.version }})</p>
+      }
+
+      <label>
+        Provider scenario
+        <select name="scenarioId" (change)="scenarioId.set(inputValue($event))">
+          @for (scenario of scenarios(); track scenario.id) {
+            <option [value]="scenario.id" [selected]="scenario.id === scenarioId()">{{ scenario.id }}</option>
+          }
+        </select>
+      </label>
+      @if (selectedScenario(); as scenario) {
+        <p class="hint">{{ scenario.description }}</p>
+        <table class="compact">
+          <thead>
+            <tr>
+              <th>Provider</th>
+              <th>Cost</th>
+              <th>Latency (ms)</th>
+              <th>Timeout (ms)</th>
+              <th>Failure rate</th>
+              <th>Available</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (provider of scenario.providers; track provider.id) {
+              <tr>
+                <td>{{ label(provider.id) }}</td>
+                <td>{{ provider.cost | number: '1.0-2' }}</td>
+                <td>
+                  {{ provider.latencyMs }}
+                  @if (provider.latencyJitterMs > 0) {
+                    + 0–{{ provider.latencyJitterMs }}
+                  }
+                </td>
+                <td>{{ provider.timeoutMs ?? '–' }}</td>
+                <td>{{ provider.failureRate | percent }}</td>
+                <td>{{ provider.available ? 'yes' : 'no' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+
+      <button type="submit" class="primary" [disabled]="busy()">Start session</button>
+    </form>
+  </section>
+}
+
+@if (session(); as s) {
+  <section class="card">
+    <div class="session-header">
+      <div>
+        <h2>Record {{ s.recordId }}</h2>
+        <p class="meta">
+          Policy <strong>{{ s.policyId }}</strong> · Scenario <strong>{{ s.scenarioVersion }}</strong> ·
+          Model {{ s.modelVersion }} · {{ s.datasetSplit }} split
+        </p>
+      </div>
+      <span class="status" [class.finished]="!active()">{{ s.status }}</span>
+    </div>
+
+    <div class="actions">
+      <button class="primary" (click)="next()" [disabled]="busy() || !active()">Next step</button>
+      <button (click)="runToEnd()" [disabled]="busy() || !active()">Run to end</button>
+      <button class="secondary" (click)="newSession()" [disabled]="busy()">New session</button>
+    </div>
+
+    <div class="tiles">
+      <div class="tile">
+        <span class="tile-label">Probability of default</span>
+        <span class="tile-value" data-testid="probability">{{ s.latestPrediction.probability | percent: '1.1-1' }}</span>
+      </div>
+      <div class="tile">
+        <span class="tile-label">Providers acquired</span>
+        <span class="tile-value">{{ s.acquiredProviders.length }} / {{ s.providers.length }}</span>
+      </div>
+      <div class="tile">
+        <span class="tile-label">Provider calls</span>
+        <span class="tile-value">{{ s.steps.length }}</span>
+      </div>
+      <div class="tile">
+        <span class="tile-label">Total cost</span>
+        <span class="tile-value" data-testid="cost">{{ s.totalCost | number: '1.0-2' }}</span>
+      </div>
+      <div class="tile">
+        <span class="tile-label">Simulated time</span>
+        <span class="tile-value">{{ s.accumulatedSimulatedMs | number }} ms</span>
+      </div>
+    </div>
+
+    @if (s.stopReason) {
+      <div class="stop" data-testid="stop">
+        <strong>Stopped: {{ s.stopReason }}</strong>
+        <p>{{ s.stopExplanation }}</p>
+      </div>
+    }
+  </section>
+
+  @if (decision(); as d) {
+    <section class="card" data-testid="decision">
+      <h3>Latest decision: {{ d.action === 'ACQUIRE' ? 'acquire a provider' : 'stop' }}</h3>
+      @if (decisionReason(); as reason) {
+        <p>{{ reason }}</p>
+      }
+      <p class="meta">
+        {{ d.policyId }} ({{ d.policyVersion }})
+        @if (d.estimation; as estimation) {
+          · estimates {{ estimation.method }}, K = {{ estimation.sampleSize }}, reference
+          {{ estimation.referenceVersion }}
+        }
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>Provider</th>
+            <th>Status</th>
+            <th>Cost</th>
+            <th>Expected time (ms)</th>
+            <th>Success probability</th>
+            @if (d.estimation) {
+              <th>Expected gain (bits)</th>
+              <th>Price (bits)</th>
+              <th>Score (bits)</th>
+            }
+            <th>Chosen</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (c of d.candidates; track c.providerId) {
+            <tr [class.selected]="c.selected">
+              <td>{{ label(c.providerId) }}</td>
+              <td>{{ c.status }}</td>
+              <td>{{ c.cost | number: '1.0-2' }}</td>
+              <td>{{ c.expectedLatencyMs | number: '1.0-0' }}</td>
+              <td>{{ c.successProbability | percent: '1.0-1' }}</td>
+              @if (d.estimation) {
+                <td>{{ c.expectedInformationGainBits === null ? '–' : (c.expectedInformationGainBits | number: '1.4-4') }}</td>
+                <td>{{ c.price === null ? '–' : (c.price | number: '1.4-4') }}</td>
+                <td [class.negative]="c.score !== null && c.score <= 0">
+                  {{ c.score === null ? '–' : (c.score | number: '1.4-4') }}
+                </td>
+              }
+              <td>{{ c.selected ? '✓' : '' }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+      @if (d.estimation) {
+        <p class="hint">
+          Score = success probability × expected information gain − price; price = λ_cost × success probability ×
+          cost + λ_time × expected time. The policy acquires the provider with the highest positive score and stops
+          when no score is positive.
+        </p>
+      }
+    </section>
+  }
+
+  <section class="card">
+    <h3>Observed information</h3>
+    <div class="groups">
+      <div class="group acquired">
+        <h4>Initial information <span class="badge">observed</span></h4>
+        <dl>
+          @for (feature of initialFeatures(); track feature) {
+            <dt>{{ feature }}</dt>
+            <dd>{{ s.observedFeatures[feature] | number }}</dd>
+          }
+        </dl>
+      </div>
+      @for (group of groups(); track group.provider.id) {
+        <div [class]="'group ' + group.status.toLowerCase()" [attr.data-testid]="'group-' + group.provider.id">
+          <h4>
+            {{ label(group.provider.id) }}
+            <span class="badge">{{ group.status === 'NOT_ACQUIRED' ? 'not acquired' : group.status.toLowerCase() }}</span>
+          </h4>
+          <p class="meta">
+            cost {{ group.provider.cost | number: '1.0-2' }} · {{ group.provider.latencyMs }}
+            @if (group.provider.latencyJitterMs > 0) {
+              + 0–{{ group.provider.latencyJitterMs }}
+            }
+            ms
+            @if (group.provider.timeoutMs !== null) {
+              · timeout {{ group.provider.timeoutMs }} ms
+            }
+            · failure rate {{ group.provider.failureRate | percent }}
+          </p>
+          @if (group.values; as values) {
+            <dl>
+              @for (feature of group.features; track feature) {
+                <dt>{{ feature }}</dt>
+                <dd>{{ values[feature] | number }}</dd>
+              }
+            </dl>
+          } @else {
+            <p class="hidden-note">{{ group.features.length }} features, values not acquired</p>
+          }
+          @if (group.failure) {
+            <p class="failure">{{ group.failure }}</p>
+          }
+        </div>
+      }
+    </div>
+  </section>
+
+  <section class="card">
+    <h3>Prediction history</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>After</th>
+          <th class="bar-column">Probability of default</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of predictionRows(); track row.prediction.sequenceNumber) {
+          <tr>
+            <td>{{ row.prediction.sequenceNumber }}</td>
+            <td>{{ row.after }}</td>
+            <td class="bar-column"><span class="bar" [style.width.%]="row.prediction.probability * 100"></span></td>
+            <td>{{ row.prediction.probability | percent: '1.1-1' }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <h3>Provider calls</h3>
+    @if (s.steps.length === 0) {
+      <p class="hint">No provider has been called yet.</p>
+    } @else {
+      <table data-testid="steps">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Provider</th>
+            <th>Result</th>
+            <th>Decision reason</th>
+            <th>Cost</th>
+            <th>Simulated time (ms)</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (step of s.steps; track step.stepNumber) {
+            <tr [class.failed]="step.status === 'FAILED'">
+              <td>{{ step.stepNumber }}</td>
+              <td>{{ label(step.providerId) }}</td>
+              <td>
+                @if (step.status === 'SUCCESS') {
+                  success
+                } @else {
+                  {{ step.failureReason }}
+                }
+              </td>
+              <td class="reason">{{ step.decisionReason }}</td>
+              <td>{{ step.chargedCost | number: '1.0-2' }}</td>
+              <td>{{ step.simulatedLatencyMs | number }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </section>
+}
