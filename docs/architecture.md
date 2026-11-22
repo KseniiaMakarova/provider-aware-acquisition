@@ -485,7 +485,7 @@ locally and mounted.
 | ML service | 199 | pytest; synthetic data for unit tests; real-data tests skip until the data and reference are prepared |
 | Backend | 246, including 3 contract tests that run when the ML service is up | JUnit 5, AssertJ, Mockito, Testcontainers (real PostgreSQL), ArchUnit |
 | Frontend | 16 | Vitest, Angular HTTP testing |
-| Whole system | `scripts/smoke_test.py` (39 checks) | A fixed-order session and the MVP checks (adaptive early stop, stop without providers, expensive and unavailable Repayment History, failures and timeouts, full acquisition, no leakage) through the public API |
+| Whole system | `scripts/smoke_test.py` (36 checks, 37 with `--compose`) | A fixed-order session and the MVP checks (adaptive early stop, stop without providers, expensive and unavailable Repayment History, failures and timeouts, full acquisition, no leakage) through the public API |
 
 ## 13. Design decisions
 

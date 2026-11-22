@@ -57,6 +57,11 @@ class Results:
         self.passed += 1
         print(f"  PASS  {description}")
 
+    @staticmethod
+    def note(description: str) -> None:
+        """Information that is not a check of its own (not counted)."""
+        print(f"  INFO  {description}")
+
 
 def request(method: str, url: str, body: dict | None = None) -> tuple[int, dict | str]:
     data = None if body is None else json.dumps(body).encode()
@@ -333,9 +338,9 @@ def run_mvp_checks(api: str, config: dict, results: Results) -> None:
                   and len(full["predictions"]) == len(provider_ids) + 1,
                   "full acquisition acquires every provider with the same model and stops")
 
-    # 7: no leaks anywhere (every response of every session above was scanned).
-    results.check(sessions.count > 0, f"no unacquired feature, label or demographic in any response of "
-                                      f"{sessions.count} MVP sessions")
+    # 7: no leaks anywhere. Every response of every session above was scanned and a leak would
+    # already have stopped the test, so this is only a summary.
+    results.note(f"no unacquired feature, label or demographic in any response of {sessions.count} MVP sessions")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -362,15 +367,20 @@ def main(argv: list[str] | None = None) -> int:
 
         print("Checking services")
         wait_until_up(f"{args.backend_url}/actuator/health", args.timeout)
-        results.check(True, "backend is up")
+        results.note("backend is up")
         api = args.backend_url
         try:
             status, page = request("GET", args.frontend_url)
-            if status == 200 and "<title>Provider-Aware Acquisition</title>" in str(page):
-                results.check(True, "frontend page is served")
-                api = args.frontend_url
+            served = status == 200 and "<title>Provider-Aware Acquisition</title>" in str(page)
         except (urllib.error.URLError, ConnectionError, TimeoutError):
+            served = False
+        if args.compose:
+            # With Docker Compose the frontend container is part of the platform, so it must serve the page.
+            results.check(served, f"frontend page is served at {args.frontend_url}")
+        elif not served:
             print(f"  SKIP  frontend not reachable at {args.frontend_url}; using the backend directly")
+        if served:
+            api = args.frontend_url
 
         print(f"Running a fixed-order session through {api}")
         run_session(api, config, results)
