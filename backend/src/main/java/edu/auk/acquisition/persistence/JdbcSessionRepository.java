@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import edu.auk.acquisition.feature.FeatureConfiguration;
 import edu.auk.acquisition.feature.ObservedFeatures;
+import edu.auk.acquisition.policy.DecisionDetails;
 import edu.auk.acquisition.session.AcquisitionSession;
 import edu.auk.acquisition.session.AcquisitionStep;
 import edu.auk.acquisition.session.PredictionSnapshot;
@@ -108,7 +109,8 @@ class JdbcSessionRepository implements SessionRepository {
 	public void saveAdvance(UUID token, AcquisitionSession s, AcquisitionStep step, PredictionSnapshot prediction) {
 		int updated = jdbc.sql("""
 				UPDATE acquisition_session
-				SET status = :status, stop_reason = :stopReason, observed_features = CAST(:observed AS jsonb),
+				SET status = :status, stop_reason = :stopReason, stop_explanation = :stopExplanation,
+				    stop_decision_details = CAST(:stopDecision AS jsonb), observed_features = CAST(:observed AS jsonb),
 				    acquired_providers = CAST(:acquired AS jsonb), model_version = :model, total_cost = :totalCost,
 				    accumulated_simulated_ms = :simulatedMs, execution_ms = :executionMs, updated_at = :updatedAt,
 				    advance_token = NULL, advance_claimed_at = NULL, version = version + 1
@@ -116,6 +118,8 @@ class JdbcSessionRepository implements SessionRepository {
 				""")
 			.param("status", s.status().name())
 			.param("stopReason", s.stopReason())
+			.param("stopExplanation", s.stopExplanation())
+			.param("stopDecision", json(s.stopDecision()))
 			.param("observed", JSON.writeValueAsString(s.observed().values()))
 			.param("acquired", JSON.writeValueAsString(s.acquiredProviders(config.providerIds())))
 			.param("model", s.modelVersion())
@@ -141,9 +145,9 @@ class JdbcSessionRepository implements SessionRepository {
 		jdbc.sql("""
 				INSERT INTO acquisition_step (id, session_id, step_number, provider_id, decision_reason, status,
 				    failure_reason, returned_features, configured_cost, charged_cost, simulated_latency_ms, execution_ms,
-				    prediction_sequence_number, created_at)
+				    prediction_sequence_number, decision_details, created_at)
 				VALUES (:id, :sessionId, :stepNumber, :providerId, :reason, :status, :failure, CAST(:features AS jsonb),
-				    :configuredCost, :chargedCost, :simulatedMs, :executionMs, :sequence, :createdAt)
+				    :configuredCost, :chargedCost, :simulatedMs, :executionMs, :sequence, CAST(:details AS jsonb), :createdAt)
 				""")
 			.param("id", UUID.randomUUID())
 			.param("sessionId", sessionId)
@@ -158,6 +162,7 @@ class JdbcSessionRepository implements SessionRepository {
 			.param("simulatedMs", step.simulatedLatencyMs())
 			.param("executionMs", step.executionMs())
 			.param("sequence", step.predictionSequenceNumber())
+			.param("details", json(step.decisionDetails()))
 			.param("createdAt", utc(step.createdAt()))
 			.update();
 	}
@@ -209,7 +214,7 @@ class JdbcSessionRepository implements SessionRepository {
 						features == null ? null : canonicalOrder(JSON.readValue(features, VALUES)),
 						rs.getBigDecimal("configured_cost"),
 						rs.getBigDecimal("charged_cost"), rs.getLong("simulated_latency_ms"), rs.getLong("execution_ms"),
-						sequence, instant(rs, "created_at"));
+						sequence, details(rs, "decision_details"), instant(rs, "created_at"));
 			})
 			.list();
 	}
@@ -226,7 +231,8 @@ class JdbcSessionRepository implements SessionRepository {
 		return new AcquisitionSession(rs.getObject("id", UUID.class), rs.getString("record_id"),
 				rs.getString("dataset_split"), rs.getString("access_mode"), rs.getString("policy_id"),
 				rs.getString("scenario_version"), rs.getString("feature_config_version"), rs.getString("model_version"),
-				SessionStatus.valueOf(rs.getString("status")), rs.getString("stop_reason"), observed,
+				SessionStatus.valueOf(rs.getString("status")), rs.getString("stop_reason"), rs.getString("stop_explanation"),
+				details(rs, "stop_decision_details"), observed,
 				rs.getBigDecimal("total_cost"), rs.getLong("accumulated_simulated_ms"), rs.getLong("execution_ms"),
 				instant(rs, "created_at"), instant(rs, "updated_at"));
 	}
@@ -240,6 +246,15 @@ class JdbcSessionRepository implements SessionRepository {
 		Map<String, Double> ordered = new LinkedHashMap<>();
 		config.modelFeatures().stream().filter(values::containsKey).forEach(f -> ordered.put(f, values.get(f)));
 		return ordered;
+	}
+
+	private static String json(DecisionDetails details) {
+		return details == null ? null : JSON.writeValueAsString(details);
+	}
+
+	private static DecisionDetails details(ResultSet rs, String column) throws SQLException {
+		String value = rs.getString(column);
+		return value == null ? null : JSON.readValue(value, DecisionDetails.class);
 	}
 
 	private static OffsetDateTime utc(Instant instant) {

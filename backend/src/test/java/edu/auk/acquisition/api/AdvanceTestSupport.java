@@ -1,6 +1,7 @@
 package edu.auk.acquisition.api;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doAnswer;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -8,6 +9,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
 
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.BeforeEach;
@@ -24,6 +28,7 @@ import edu.auk.acquisition.feature.FeatureConfiguration;
 import edu.auk.acquisition.feature.ObservedFeatures;
 import edu.auk.acquisition.prediction.Prediction;
 import edu.auk.acquisition.prediction.PredictionClient;
+import edu.auk.acquisition.prediction.ValueEstimate;
 
 /**
  * Shared setup for /advance tests: real HTTP, PostgreSQL and simulated providers; only the ML
@@ -53,10 +58,30 @@ abstract class AdvanceTestSupport {
 		return new Prediction(0.05 + 0.1 * observed.acquiredProviders().size(), "mask-hgb-test", config.version());
 	}
 
+	/**
+	 * Fake value estimates: the expected information gain of each candidate depends on the
+	 * providers already acquired, as given by {@code gains}; missing entries are 0.
+	 */
+	void fakeEstimates(Function<Set<String>, Map<String, Double>> gains) {
+		doAnswer(call -> {
+			ObservedFeatures observed = call.getArgument(0);
+			List<String> candidates = call.getArgument(1);
+			Map<String, Double> gain = gains.apply(observed.acquiredProviders());
+			return new ValueEstimate("knn-eig-v1", call.getArgument(2), "ref-test", "mask-hgb-test",
+					prediction(observed).probability(), candidates.stream()
+						.map(c -> new ValueEstimate.ProviderValue(c, gain.getOrDefault(c, 0.0), 0.3, 0.02))
+						.toList());
+		}).when(predictionClient).estimateValue(any(), any(), anyInt());
+	}
+
 	String createSession(String recordId) throws Exception {
+		return createSession(recordId, "FIXED_ORDER");
+	}
+
+	String createSession(String recordId, String policyId) throws Exception {
 		String body = mvc
 			.perform(post("/api/v1/sessions").contentType(MediaType.APPLICATION_JSON)
-				.content("{\"recordId\": \"" + recordId + "\", \"policyId\": \"FIXED_ORDER\"}"))
+				.content("{\"recordId\": \"" + recordId + "\", \"policyId\": \"" + policyId + "\"}"))
 			.andExpect(status().isCreated())
 			.andReturn()
 			.getResponse()

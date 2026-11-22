@@ -47,3 +47,17 @@ grouping or the model:
 A scenario must define every configured provider. `default.json` is neutral: all providers have the
 same cost and latency, are available and never fail. To use another scenario, add a file here and
 set `SCENARIO_CONFIG` for the backend, or `SCENARIO=<file name without .json>` for Docker Compose.
+
+## `policies/`
+
+Versioned parameters of the `ADAPTIVE` policy, read by the backend (`ADAPTIVE_POLICY_CONFIG`):
+
+| Field | Meaning |
+|---|---|
+| `policyVersion` | Stored with every decision of the policy |
+| `sampleSize` | Number of training records the ML service uses for one value estimate (K) |
+| `costWeightBitsPerUnit` | `λ_cost`: how many bits of expected information one cost unit is worth |
+| `latencyWeightBitsPerSecond` | `λ_time`: how many bits one second of simulated latency is worth |
+
+`adaptive-v1.json` holds provisional experimental values (K = 100, 0.01, 0.005) chosen from an
+exploratory analysis on the validation split; they are not calibrated or optimal values.

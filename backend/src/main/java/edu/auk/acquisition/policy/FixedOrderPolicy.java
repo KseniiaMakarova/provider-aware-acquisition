@@ -1,6 +1,7 @@
 package edu.auk.acquisition.policy;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import edu.auk.acquisition.provider.ProviderMetadata;
@@ -13,6 +14,8 @@ import edu.auk.acquisition.provider.ProviderMetadata;
 public class FixedOrderPolicy implements AcquisitionPolicy {
 
 	public static final String ID = "FIXED_ORDER";
+
+	static final String VERSION = "fixed-order-v1";
 
 	private final List<String> order;
 
@@ -27,19 +30,36 @@ public class FixedOrderPolicy implements AcquisitionPolicy {
 	}
 
 	@Override
+	public String version() {
+		return VERSION;
+	}
+
+	@Override
+	public String description() {
+		return "Queries providers in one fixed order " + order + ", skipping unavailable and attempted providers;"
+				+ " stops when none is left";
+	}
+
+	@Override
+	public Map<String, Object> parameters() {
+		return Map.of("order", order);
+	}
+
+	@Override
 	public AcquisitionDecision selectNext(AcquisitionContext context) {
 		Optional<String> next = order.stream()
 			.filter(id -> context.feasibleProviders().stream().map(ProviderMetadata::id).anyMatch(id::equals))
 			.findFirst();
 		if (next.isPresent()) {
-			return new AcquisitionDecision.Acquire(next.get(),
-					"Next feasible provider in fixed order " + order);
+			return new AcquisitionDecision.Acquire(next.get(), "Next feasible provider in fixed order " + order,
+					details(context, DecisionDetails.ACQUIRE, next.get()));
 		}
-		if (context.acquiredProviders().containsAll(context.configuredProviders())) {
-			return new AcquisitionDecision.Stop(StopReason.ALL_PROVIDERS_ACQUIRED, "All configured providers acquired");
-		}
-		return new AcquisitionDecision.Stop(StopReason.NO_FEASIBLE_PROVIDERS,
-				"No available provider left that has not been attempted");
+		return FeasibilityStop.of(context, action -> details(context, action, null));
+	}
+
+	private DecisionDetails details(AcquisitionContext context, String action, String selected) {
+		return new DecisionDetails(ID, VERSION, parameters(), action, null,
+				DecisionDetails.unevaluated(context, selected));
 	}
 
 }

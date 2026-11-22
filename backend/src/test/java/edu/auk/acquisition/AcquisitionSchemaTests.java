@@ -29,13 +29,18 @@ class AcquisitionSchemaTests {
 	}
 
 	UUID insertSession(String split, String status, String stopReason) {
+		return insertSession(split, status, stopReason, stopReason == null ? null : "Stopped: " + stopReason);
+	}
+
+	UUID insertSession(String split, String status, String stopReason, String stopExplanation) {
 		UUID id = UUID.randomUUID();
 		jdbc.update("""
 				INSERT INTO acquisition_session (id, record_id, dataset_split, access_mode, policy_id, scenario_version,
-				    feature_config_version, model_version, status, stop_reason, observed_features, created_at, updated_at)
-				VALUES (?, '101', ?, 'DEVELOPMENT', 'FIXED_ORDER', 'default-v1', 'fg-2', 'mask-hgb-test', ?, ?,
+				    feature_config_version, model_version, status, stop_reason, stop_explanation, observed_features,
+				    created_at, updated_at)
+				VALUES (?, '101', ?, 'DEVELOPMENT', 'FIXED_ORDER', 'default-v1', 'fg-2', 'mask-hgb-test', ?, ?, ?,
 				    '{"LIMIT_BAL": 1001}'::jsonb, ?, ?)
-				""", id, split, status, stopReason, now(), now());
+				""", id, split, status, stopReason, stopExplanation, now(), now());
 		return id;
 	}
 
@@ -120,6 +125,13 @@ class AcquisitionSchemaTests {
 			.isInstanceOf(DataIntegrityViolationException.class);
 		assertThatCode(() -> insertSession("validation", "COMPLETED", "ALL_PROVIDERS_ACQUIRED"))
 			.doesNotThrowAnyException();
+	}
+
+	@Test
+	void finishedSessionNeedsAStopExplanation() {
+		assertThatThrownBy(() -> insertSession("validation", "COMPLETED", "ALL_PROVIDERS_ACQUIRED", null))
+			.isInstanceOf(DataIntegrityViolationException.class);
+		assertThatCode(() -> insertSession("validation", "ACTIVE", null, null)).doesNotThrowAnyException();
 	}
 
 	@Test

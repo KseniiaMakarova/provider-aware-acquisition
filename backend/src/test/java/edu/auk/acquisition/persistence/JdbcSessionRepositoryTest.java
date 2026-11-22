@@ -47,7 +47,7 @@ class JdbcSessionRepositoryTest {
 
 	static AcquisitionSession session(Map<String, Double> values) {
 		return new AcquisitionSession(UUID.randomUUID(), "101", "validation", "DEVELOPMENT", "FIXED_ORDER", "default-v1",
-				config.version(), "mask-hgb-test", SessionStatus.ACTIVE, null, ObservedFeatures.of(values, config),
+				config.version(), "mask-hgb-test", SessionStatus.ACTIVE, null, null, null, ObservedFeatures.of(values, config),
 				BigDecimal.ZERO, 0, 4, NOW, NOW);
 	}
 
@@ -182,7 +182,7 @@ class JdbcSessionRepositoryTest {
 		repository.claim(session.id(), UUID.randomUUID(), now, now.minusSeconds(30)); // takes over the stale claim
 
 		AcquisitionStep step = new AcquisitionStep(1, "BILLING_HISTORY", "test", "FAILED", "down", null,
-				BigDecimal.ONE, BigDecimal.ZERO, 200, 1, null, NOW);
+				BigDecimal.ONE, BigDecimal.ZERO, 200, 1, null, null, NOW);
 		assertThatThrownBy(() -> repository.saveAdvance(lost, session, step, null))
 			.isInstanceOf(ClaimLostException.class);
 		assertThat(jdbc.queryForObject("SELECT count(*) FROM acquisition_step WHERE session_id = ?", Integer.class,
@@ -192,7 +192,7 @@ class JdbcSessionRepositoryTest {
 	static AcquisitionSession completed(AcquisitionSession s) {
 		return new AcquisitionSession(s.id(), s.recordId(), s.datasetSplit(), s.accessMode(), s.policyId(),
 				s.scenarioVersion(), s.featureConfigVersion(), s.modelVersion(), SessionStatus.COMPLETED,
-				"NO_FEASIBLE_PROVIDERS", s.observed(), s.totalCost(), s.accumulatedSimulatedMs(), s.executionMs(),
+				"NO_FEASIBLE_PROVIDERS", "No available provider left", null, s.observed(), s.totalCost(), s.accumulatedSimulatedMs(), s.executionMs(),
 				s.createdAt(), s.updatedAt());
 	}
 

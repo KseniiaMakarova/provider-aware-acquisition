@@ -41,7 +41,7 @@ class BackendApplicationTests {
 	void flywayAppliesAllMigrations() {
 		var applied = jdbc.queryForList(
 				"SELECT version FROM flyway_schema_history WHERE success ORDER BY installed_rank", String.class);
-		assertThat(applied).containsExactly("1", "2");
+		assertThat(applied).containsExactly("1", "2", "3");
 	}
 
 	@Test

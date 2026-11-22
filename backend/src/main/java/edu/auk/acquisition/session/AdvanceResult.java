@@ -1,7 +1,10 @@
 package edu.auk.acquisition.session;
 
-/** What one {@code /advance} call did. */
-public record AdvanceResult(Outcome outcome, String decisionReason, AcquisitionStep step, SessionHistory history) {
+import edu.auk.acquisition.policy.DecisionDetails;
+
+/** What one {@code /advance} call did, and the details of the decision behind it. */
+public record AdvanceResult(Outcome outcome, String decisionReason, DecisionDetails decision, AcquisitionStep step,
+		SessionHistory history) {
 
 	public enum Outcome {
 

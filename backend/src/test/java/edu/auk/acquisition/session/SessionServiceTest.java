@@ -27,6 +27,7 @@ import edu.auk.acquisition.policy.PolicyRegistry;
 import edu.auk.acquisition.prediction.Prediction;
 import edu.auk.acquisition.prediction.PredictionClient;
 import edu.auk.acquisition.prediction.PredictionUnavailableException;
+import edu.auk.acquisition.prediction.ValueEstimate;
 import edu.auk.acquisition.provider.InformationProvider;
 import edu.auk.acquisition.provider.ProviderRegistry;
 import edu.auk.acquisition.provider.simulated.SimulatedProvider;
@@ -49,12 +50,22 @@ class SessionServiceTest {
 
 	boolean mlAvailable = true;
 
-	final PredictionClient predictionClient = observed -> {
-		predictionRequests.add(observed);
-		if (!mlAvailable) {
-			throw new PredictionUnavailableException("down");
+	final PredictionClient predictionClient = new PredictionClient() {
+
+		@Override
+		public Prediction predict(ObservedFeatures observed) {
+			predictionRequests.add(observed);
+			if (!mlAvailable) {
+				throw new PredictionUnavailableException("down");
+			}
+			return new Prediction(0.37, "mask-hgb-test", config.version());
 		}
-		return new Prediction(0.37, "mask-hgb-test", config.version());
+
+		@Override
+		public ValueEstimate estimateValue(ObservedFeatures observed, List<String> candidates, int sampleSize) {
+			throw new UnsupportedOperationException("session creation never estimates values");
+		}
+
 	};
 
 	final SessionRepository repository = new SessionRepository() {

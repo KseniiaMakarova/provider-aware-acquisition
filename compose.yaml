@@ -44,12 +44,14 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-acquisition}
       FEATURE_CONFIG: /config/feature-groups.json
       SCENARIO_CONFIG: /config/scenarios/${SCENARIO:-default}.json
+      ADAPTIVE_POLICY_CONFIG: /config/policies/adaptive-v1.json
       DATASET_ACCESS_MODE: DEVELOPMENT
       DATASET_FEATURES_DIR: /data/features
       ML_SERVICE_URL: http://ml-service:8000
     volumes:
       - ./config/feature-groups.json:/config/feature-groups.json:ro
       - ./config/scenarios:/config/scenarios:ro
+      - ./config/policies:/config/policies:ro
       - ./data/features/validation.csv:/data/features/validation.csv:ro
     ports:
       - "${BACKEND_PORT:-8080}:8080"

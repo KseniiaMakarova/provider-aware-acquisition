@@ -78,7 +78,8 @@ public class SessionService {
 		long executionMs = Duration.ofNanos(System.nanoTime() - start).toMillis();
 		AcquisitionSession session = new AcquisitionSession(UUID.randomUUID(), recordId, initialLoader.split(),
 				initialLoader.accessMode(), policyId, providers.scenario().version(), config.version(),
-				prediction.modelVersion(), SessionStatus.ACTIVE, null, observed, BigDecimal.ZERO, 0, executionMs, now, now);
+				prediction.modelVersion(), SessionStatus.ACTIVE, null, null, null, observed, BigDecimal.ZERO, 0, executionMs,
+				now, now);
 		PredictionSnapshot initial = new PredictionSnapshot(0, prediction.probability(), observed.mask(),
 				prediction.modelVersion(), prediction.featureConfigVersion(), now);
 		repository.insertNew(session, initial);
