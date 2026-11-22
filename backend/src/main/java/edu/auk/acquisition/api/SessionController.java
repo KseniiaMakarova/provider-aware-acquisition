@@ -38,8 +38,8 @@ class SessionController {
 	@PostMapping("/{id}/advance")
 	AdvanceResponse advance(@PathVariable UUID id) {
 		AdvanceResult result = orchestrator.advance(id);
-		return new AdvanceResponse(result.outcome().name(), result.decisionReason(), StepView.of(result.step()),
-				toResponse(result.history()));
+		return new AdvanceResponse(result.outcome().name(), result.decisionReason(), result.decision(),
+				StepView.of(result.step()), toResponse(result.history()));
 	}
 
 	/** Starts a session from the initial information and returns it with the initial prediction. */

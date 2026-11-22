@@ -27,7 +27,8 @@ class ArchitectureRulesDetectViolationsTest {
 		assertThatThrownBy(() -> ArchitectureTest.policiesSeeOnlyMetadataAndObservedState.check(withLeakyFixtures))
 			.isInstanceOf(AssertionError.class)
 			.hasMessageContaining("RestrictedRecordReader")
-			.hasMessageContaining("ProviderExecutor");
+			.hasMessageContaining("ProviderExecutor")
+			.hasMessageContaining("PredictionClient");
 	}
 
 	@Test

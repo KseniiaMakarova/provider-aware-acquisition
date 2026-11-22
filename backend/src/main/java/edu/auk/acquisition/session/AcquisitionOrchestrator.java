@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalInt;
 import java.util.UUID;
 
 import org.slf4j.Logger;
@@ -23,6 +24,7 @@ import edu.auk.acquisition.policy.AcquisitionPolicy;
 import edu.auk.acquisition.policy.PolicyRegistry;
 import edu.auk.acquisition.prediction.Prediction;
 import edu.auk.acquisition.prediction.PredictionClient;
+import edu.auk.acquisition.prediction.ValueEstimate;
 import edu.auk.acquisition.provider.ProviderAttempt;
 import edu.auk.acquisition.provider.ProviderContractException;
 import edu.auk.acquisition.provider.ProviderExecutor;
@@ -107,8 +109,16 @@ public class AcquisitionOrchestrator {
 			.orElseThrow(() -> new IllegalStateException("Session uses unknown policy " + session.policyId()));
 		List<String> attempted = history.attemptedProviders();
 		List<ProviderMetadata> feasible = providers.feasibleProviders(attempted);
+		// Value estimates are made from the observed state only, and only for policies that use them.
+		ValueEstimate estimate = null;
+		OptionalInt sampleSize = policy.valueSampleSize();
+		if (sampleSize.isPresent() && !feasible.isEmpty()) {
+			estimate = predictionClient.estimateValue(session.observed(),
+					feasible.stream().map(ProviderMetadata::id).toList(), sampleSize.getAsInt());
+		}
 		AcquisitionContext context = new AcquisitionContext(session.observed(), history.latestPrediction().probability(),
-				feasible, config.providerIds(), attempted, session.totalCost(), session.accumulatedSimulatedMs());
+				providers.metadata(), feasible, attempted, session.totalCost(), session.accumulatedSimulatedMs(),
+				estimate);
 
 		AcquisitionDecision decision = policy.selectNext(context);
 		return switch (decision) {
@@ -127,11 +137,11 @@ public class AcquisitionOrchestrator {
 		AcquisitionSession s = history.session();
 		AcquisitionSession completed = new AcquisitionSession(s.id(), s.recordId(), s.datasetSplit(), s.accessMode(),
 				s.policyId(), s.scenarioVersion(), s.featureConfigVersion(), s.modelVersion(), SessionStatus.COMPLETED,
-				stop.stopReason().name(), s.observed(), s.totalCost(), s.accumulatedSimulatedMs(),
-				s.executionMs() + elapsedMs(start), s.createdAt(), clock.instant());
+				stop.stopReason().name(), stop.reason(), stop.details(), s.observed(), s.totalCost(),
+				s.accumulatedSimulatedMs(), s.executionMs() + elapsedMs(start), s.createdAt(), clock.instant());
 		repository.saveAdvance(token, completed, null, null);
-		log.info("Session {} stopped: {}", s.id(), stop.stopReason());
-		return new AdvanceResult(Outcome.STOPPED, stop.reason(), null,
+		log.info("Session {} stopped: {} ({})", s.id(), stop.stopReason(), stop.reason());
+		return new AdvanceResult(Outcome.STOPPED, stop.reason(), stop.details(), null,
 				new SessionHistory(completed, history.predictions(), history.steps()));
 	}
 
@@ -159,11 +169,12 @@ public class AcquisitionOrchestrator {
 		AcquisitionStep step = new AcquisitionStep(stepNumber, attempt.providerId(), acquire.reason(),
 				attempt.status().name(), attempt.failureReason(), attempt.succeeded() ? attempt.values() : null,
 				attempt.configuredCost(), attempt.chargedCost(), attempt.simulatedLatencyMs(), executionMs,
-				snapshot == null ? null : snapshot.sequenceNumber(), now);
+				snapshot == null ? null : snapshot.sequenceNumber(), acquire.details(), now);
 		AcquisitionSession updated = new AcquisitionSession(s.id(), s.recordId(), s.datasetSplit(), s.accessMode(),
-				s.policyId(), s.scenarioVersion(), s.featureConfigVersion(), modelVersion, SessionStatus.ACTIVE, null,
-				observed, s.totalCost().add(attempt.chargedCost()), s.accumulatedSimulatedMs() + attempt.simulatedLatencyMs(),
-				s.executionMs() + executionMs, s.createdAt(), now);
+				s.policyId(), s.scenarioVersion(), s.featureConfigVersion(), modelVersion, SessionStatus.ACTIVE, null, null,
+				null, observed, s.totalCost().add(attempt.chargedCost()),
+				s.accumulatedSimulatedMs() + attempt.simulatedLatencyMs(), s.executionMs() + executionMs, s.createdAt(),
+				now);
 		repository.saveAdvance(token, updated, step, snapshot);
 
 		List<AcquisitionStep> steps = new ArrayList<>(history.steps());
@@ -174,7 +185,8 @@ public class AcquisitionOrchestrator {
 		}
 		log.info("Session {} step {}: {} {} (charged {}, simulated {} ms)", s.id(), stepNumber, attempt.providerId(),
 				attempt.status(), attempt.chargedCost(), attempt.simulatedLatencyMs());
-		return new AdvanceResult(attempt.succeeded() ? Outcome.ACQUIRED : Outcome.PROVIDER_FAILED, acquire.reason(), step,
+		return new AdvanceResult(attempt.succeeded() ? Outcome.ACQUIRED : Outcome.PROVIDER_FAILED, acquire.reason(),
+				acquire.details(), step,
 				new SessionHistory(updated, predictions, steps));
 	}
 

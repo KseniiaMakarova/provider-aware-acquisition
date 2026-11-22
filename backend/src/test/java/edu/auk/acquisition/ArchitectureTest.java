@@ -9,6 +9,7 @@ import com.tngtech.archunit.junit.ArchTest;
 import com.tngtech.archunit.lang.ArchRule;
 
 import edu.auk.acquisition.dataset.RestrictedRecordReader;
+import edu.auk.acquisition.prediction.PredictionClient;
 import edu.auk.acquisition.provider.InformationProvider;
 import edu.auk.acquisition.provider.ProviderExecutor;
 import edu.auk.acquisition.session.InitialInformationLoader;
@@ -44,8 +45,12 @@ class ArchitectureTest {
 		.orShould()
 		.dependOnClassesThat()
 		.areAssignableTo(InformationProvider.class)
+		.orShould()
+		.dependOnClassesThat()
+		.areAssignableTo(PredictionClient.class)
 		.allowEmptyShould(true)
-		.because("a policy decides from observed values and provider metadata only, and never calls providers");
+		.because("a policy decides from observed values, provider metadata and given estimates only; it never calls"
+				+ " providers or the ML service");
 
 	@ArchTest
 	static final ArchRule predictionUsesOnlyObservedFeatures = noClasses().that()

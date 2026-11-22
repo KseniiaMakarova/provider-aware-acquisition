@@ -78,6 +78,28 @@ class MlServiceContractTest {
 	}
 
 	@Test
+	void everyStateWithCandidatesGetsValueEstimatesForExactlyThoseCandidates() {
+		for (Set<String> state : config.observationStates()) {
+			List<String> candidates = config.providerIds().stream().filter(p -> !state.contains(p)).toList();
+			if (candidates.isEmpty()) {
+				continue;
+			}
+			Map<String, Double> values = new HashMap<>();
+			config.observedFeatures(state).forEach(f -> values.put(f, record.get(f)));
+			ObservedFeatures observed = ObservedFeatures.of(values, config);
+
+			ValueEstimate estimate = client.estimateValue(observed, candidates, 100);
+
+			assertThat(estimate.method()).isEqualTo("knn-eig-v1");
+			assertThat(estimate.sampleSize()).isEqualTo(100);
+			assertThat(estimate.values()).extracting(ValueEstimate.ProviderValue::providerId)
+				.containsExactlyElementsOf(candidates);
+			assertThat(estimate.values()).allSatisfy(v -> assertThat(v.expectedInformationGainBits()).isNotNegative());
+			assertThat(estimate.currentProbability()).isEqualTo(client.predict(observed).probability());
+		}
+	}
+
+	@Test
 	void serviceRejectsAPartialGroupWithTheAgreedErrorFormat() {
 		Map<String, Object> body = Map.of("observedFeatures", Map.of("LIMIT_BAL", 1.0, "BILL_AMT1", 1.0, "PAY_AMT1", 1.0,
 				"PAY_2", 0.0), "observedMask", List.of("LIMIT_BAL", "BILL_AMT1", "PAY_AMT1", "PAY_2"));

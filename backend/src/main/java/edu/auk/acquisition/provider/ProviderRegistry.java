@@ -72,7 +72,7 @@ public class ProviderRegistry {
 	private ProviderMetadata metadataOf(ProviderGroup group) {
 		ProviderSettings settings = scenario.settings(group.id());
 		return new ProviderMetadata(group.id(), group.description(), group.features(), settings.cost(),
-				settings.latencyMs(), settings.available());
+				settings.latencyMs(), settings.available(), settings.failureRate());
 	}
 
 }

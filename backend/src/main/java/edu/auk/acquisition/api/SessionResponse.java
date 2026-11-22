@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import edu.auk.acquisition.policy.DecisionDetails;
 import edu.auk.acquisition.session.AcquisitionSession;
 import edu.auk.acquisition.session.AcquisitionStep;
 import edu.auk.acquisition.session.PredictionSnapshot;
@@ -19,7 +20,8 @@ public record SessionResponse(UUID sessionId, String recordId, String status, St
 		String scenarioVersion, String featureConfigVersion, String modelVersion, Map<String, Double> observedFeatures,
 		List<String> observedMask, List<String> acquiredProviders, List<String> remainingProviders,
 		PredictionView latestPrediction, List<PredictionView> predictions, List<StepView> steps, BigDecimal totalCost,
-		long accumulatedSimulatedMs, long executionMs, String stopReason, Instant createdAt) {
+		long accumulatedSimulatedMs, long executionMs, String stopReason, String stopExplanation,
+		DecisionDetails stopDecision, Instant createdAt) {
 
 	public record PredictionView(int sequenceNumber, double probability, List<String> observedMask, String modelVersion,
 			Instant createdAt) {
@@ -33,14 +35,15 @@ public record SessionResponse(UUID sessionId, String recordId, String status, St
 
 	public record StepView(int stepNumber, String providerId, String status, String decisionReason,
 			String failureReason, Map<String, Double> acquiredFeatures, BigDecimal chargedCost, long simulatedLatencyMs,
-			Integer predictionSequenceNumber) {
+			Integer predictionSequenceNumber, DecisionDetails decisionDetails) {
 
 		static StepView of(AcquisitionStep s) {
 			if (s == null) {
 				return null;
 			}
 			return new StepView(s.stepNumber(), s.providerId(), s.status(), s.decisionReason(), s.failureReason(),
-					s.returnedFeatures(), s.chargedCost(), s.simulatedLatencyMs(), s.predictionSequenceNumber());
+					s.returnedFeatures(), s.chargedCost(), s.simulatedLatencyMs(), s.predictionSequenceNumber(),
+					s.decisionDetails());
 		}
 
 	}
@@ -53,7 +56,7 @@ public record SessionResponse(UUID sessionId, String recordId, String status, St
 				PredictionView.of(history.latestPrediction()),
 				history.predictions().stream().map(PredictionView::of).toList(),
 				history.steps().stream().map(StepView::of).toList(), s.totalCost(), s.accumulatedSimulatedMs(),
-				s.executionMs(), s.stopReason(), s.createdAt());
+				s.executionMs(), s.stopReason(), s.stopExplanation(), s.stopDecision(), s.createdAt());
 	}
 
 }
