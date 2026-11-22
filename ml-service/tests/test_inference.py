@@ -47,7 +47,12 @@ def initial_request(record, config):
 def test_health_reports_model_and_config_versions(client, artifacts, config):
     body = client.get("/health").json()
     deployed = json.loads((artifacts / DEPLOYED_FILE).read_text())
-    assert body == {"status": "UP", "modelVersion": deployed["modelVersion"], "featureConfigVersion": config.version}
+    assert body == {
+        "status": "UP",
+        "modelVersion": deployed["modelVersion"],
+        "featureConfigVersion": config.version,
+        "valueReferenceVersion": None,  # these artifacts have no value reference
+    }
 
 
 # --- Valid predictions ---
@@ -195,6 +200,8 @@ INFERENCE_SOURCES = [
     *(Path(__file__).parents[1] / "src" / "ml_service" / "inference").glob("*.py"),
     Path(__file__).parents[1] / "src" / "ml_service" / "artifacts.py",
     Path(__file__).parents[1] / "src" / "ml_service" / "encoding.py",
+    Path(__file__).parents[1] / "src" / "ml_service" / "transforms.py",
+    Path(__file__).parents[1] / "src" / "ml_service" / "value_reference.py",
 ]
 
 

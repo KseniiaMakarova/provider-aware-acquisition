@@ -1,4 +1,4 @@
-"""FastAPI application for partial-information prediction.
+"""FastAPI application for partial-information prediction and provider value estimation.
 
 Start with:  python -m ml_service.inference [--host HOST] [--port PORT]
 """
@@ -14,8 +14,18 @@ from fastapi.responses import JSONResponse
 from ml_service.artifacts import load_deployed_model
 from ml_service.config import FeatureConfig, InvalidObservationError, load_feature_config
 from ml_service.inference.predictor import Predictor
-from ml_service.inference.schemas import ErrorResponse, HealthResponse, PredictRequest, PredictResponse
+from ml_service.inference.schemas import (
+    AcquisitionValueRequest,
+    AcquisitionValueResponse,
+    ErrorResponse,
+    HealthResponse,
+    PredictRequest,
+    PredictResponse,
+    ProviderValueResponse,
+)
+from ml_service.inference.value import METHOD, ValueEstimator
 from ml_service.paths import artifacts_dir as default_artifacts_dir
+from ml_service.value_reference import load_value_reference
 
 
 def error_response(status: int, error: str, message: str, details: list[dict] | None = None) -> JSONResponse:
@@ -24,9 +34,15 @@ def error_response(status: int, error: str, message: str, details: list[dict] | 
 
 
 def create_app(artifacts: Path | None = None, config: FeatureConfig | None = None) -> FastAPI:
-    """Build the app; fails immediately if the deployed model is missing or does not match the config."""
+    """Build the app; fails immediately if the deployed model or the value reference does not match the config.
+
+    Without a value reference the service still predicts, and value estimation answers 503.
+    """
     config = config or load_feature_config()
-    predictor = Predictor(load_deployed_model(artifacts or default_artifacts_dir(), config), config)
+    artifacts = artifacts or default_artifacts_dir()
+    predictor = Predictor(load_deployed_model(artifacts, config), config)
+    reference = load_value_reference(artifacts, config)
+    estimator = ValueEstimator(predictor, reference) if reference else None
 
     app = FastAPI(title="Provider-aware acquisition ML service", version="1")
 
@@ -42,7 +58,10 @@ def create_app(artifacts: Path | None = None, config: FeatureConfig | None = Non
     @app.get("/health", response_model=HealthResponse)
     def health() -> HealthResponse:
         return HealthResponse(
-            status="UP", model_version=predictor.model_version, feature_config_version=config.version
+            status="UP",
+            model_version=predictor.model_version,
+            feature_config_version=config.version,
+            value_reference_version=estimator.reference_version if estimator else None,
         )
 
     @app.post(
@@ -56,6 +75,39 @@ def create_app(artifacts: Path | None = None, config: FeatureConfig | None = Non
             probability=probability,
             model_version=predictor.model_version,
             feature_config_version=config.version,
+        )
+
+    @app.post(
+        "/internal/v1/acquisition-value",
+        response_model=AcquisitionValueResponse,
+        responses={422: {"model": ErrorResponse}, 503: {"model": ErrorResponse}},
+    )
+    def acquisition_value(request: AcquisitionValueRequest):
+        if estimator is None:
+            return error_response(
+                503,
+                "VALUE_REFERENCE_UNAVAILABLE",
+                "No value reference is loaded; run python -m ml_service.training.reference",
+            )
+        result = estimator.estimate(
+            request.observed_features, request.observed_mask, request.candidate_providers, request.sample_size
+        )
+        return AcquisitionValueResponse(
+            method=METHOD,
+            sample_size=result.sample_size,
+            reference_version=estimator.reference_version,
+            model_version=predictor.model_version,
+            feature_config_version=config.version,
+            current_probability=result.current_probability,
+            estimates=[
+                ProviderValueResponse(
+                    provider_id=v.provider_id,
+                    expected_information_gain_bits=v.expected_information_gain_bits,
+                    expected_probability=v.expected_probability,
+                    expected_absolute_change=v.expected_absolute_change,
+                )
+                for v in result.values
+            ],
         )
 
     return app

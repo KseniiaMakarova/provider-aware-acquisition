@@ -227,7 +227,7 @@ sequenceDiagram
             O->>ML: predict(observed values + mask)
             ML-->>O: probability
         end
-        O->>DB: save step, prediction, new state; release claim (one transaction, only if still claimed)
+        O->>DB: save step, prediction, new state, release claim (one transaction, only if still claimed)
         O-->>C: ACQUIRED or PROVIDER_FAILED
     end
 ```

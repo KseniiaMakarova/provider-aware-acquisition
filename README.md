@@ -75,6 +75,7 @@ py -3.13 -m venv .venv
 .venv\Scripts\python -m pip install -e .
 .venv\Scripts\python -m ml_service.data.prepare
 .venv\Scripts\python -m ml_service.training.train
+.venv\Scripts\python -m ml_service.training.reference
 cd ..
 ```
 
@@ -87,10 +88,12 @@ python3.13 -m venv .venv
 .venv/bin/python -m pip install -e .
 .venv/bin/python -m ml_service.data.prepare
 .venv/bin/python -m ml_service.training.train
+.venv/bin/python -m ml_service.training.reference
 cd ..
 ```
 
 This creates `data/features/`, `data/restricted/` and `ml-service/artifacts/` (all ignored by Git).
+The last command builds the reference sample used to estimate the value of provider information.
 
 ### Step 2, option A — run everything in Docker
 
