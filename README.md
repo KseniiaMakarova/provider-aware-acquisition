@@ -15,10 +15,13 @@ strategies and with acquiring everything.
 The experiments use the UCI *Default of Credit Card Clients* dataset. Information providers are
 simulated from the complete records; the platform does not make real credit decisions.
 
-**Current state (Phase 2, Alpha):** data pipeline, baseline and partial-information models,
-prediction service, simulated providers, persisted acquisition sessions and the step-by-step
-acquisition loop with a fixed-order policy are implemented and tested. The adaptive policy, the
-experiment runner and the user interface views are planned for the next phases.
+**Current state (Phase 3, MVP):** data pipeline, partial-information model and prediction service;
+estimation of the expected information gain of each provider; a provider-aware adaptive policy
+that weighs this gain against cost, latency, reliability and availability and stops when no
+provider is worth its price; fixed-order and full-acquisition strategies; predefined provider
+scenarios with simulated failures and timeouts; persisted sessions with an explanation of every
+decision; and an Angular page to run and inspect sessions. The batch experiment runner, calibrated
+scenarios, budgeted baselines and the final evaluation are planned for Phase 4.
 
 ## Architecture
 
@@ -44,7 +47,7 @@ Details: [docs/architecture.md](docs/architecture.md).
 | [`frontend/`](frontend/README.md) | Angular application |
 | [`config/`](config/README.md) | Feature grouping and provider scenarios shared by Java and Python |
 | [`data/`](data/README.md) | Dataset provenance and split manifest (the data itself is downloaded) |
-| [`docs/`](docs/architecture.md) | Architecture and design decisions |
+| [`docs/`](docs/architecture.md) | Architecture and design decisions ([`docs/decisions/`](docs/decisions)) |
 | `scripts/smoke_test.py` | End-to-end check of the running platform |
 | `compose.yaml` | Docker Compose for PostgreSQL and all services |
 
@@ -103,7 +106,7 @@ docker compose --profile app up -d --build
 
 | Address | Service |
 |---|---|
-| http://localhost:4200 | Frontend (and the API under `/api`) |
+| http://localhost:4200 | Frontend: the session page (the API is also available under `/api`) |
 | http://localhost:8080/api/v1/providers | Backend API |
 | http://localhost:8080/actuator/health | Backend health |
 
@@ -124,17 +127,22 @@ the Python interpreter of the `ml-service` module.
 
 ### Step 3 — try it
 
-Run one complete session with checks:
+Open http://localhost:4200, choose a validation record (for example 4, 12, 18, 27 or 150), a policy
+and a provider scenario, start the session and press **Next step** or **Run to end**.
+
+Run the end-to-end checks (a fixed-order session and the MVP scenarios, 39 checks):
 
 ```bash
 python scripts/smoke_test.py            # services already running (option A or B)
 python scripts/smoke_test.py --compose  # starts the containers, tests, stops them
 ```
 
-Or call the API yourself (record 4 is in the validation split):
+Or call the API yourself (record 4 is in the validation split; `scenarioId` is optional):
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/sessions -H "Content-Type: application/json" -d "{\"recordId\": \"4\", \"policyId\": \"FIXED_ORDER\"}"
+curl http://localhost:8080/api/v1/policies
+curl http://localhost:8080/api/v1/scenarios
+curl -X POST http://localhost:8080/api/v1/sessions -H "Content-Type: application/json" -d "{\"recordId\": \"4\", \"policyId\": \"ADAPTIVE\", \"scenarioId\": \"costly-repayment-v1\"}"
 curl -X POST http://localhost:8080/api/v1/sessions/<sessionId>/advance
 curl http://localhost:8080/api/v1/sessions/<sessionId>
 ```
