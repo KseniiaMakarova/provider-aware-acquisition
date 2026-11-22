@@ -57,11 +57,16 @@ class AcquisitionSchemaTests {
 	}
 
 	void insertStep(UUID session, int stepNumber, String provider, String status, String features, String failure) {
+		insertStep(session, stepNumber, provider, status, "FAILED".equals(status) ? "FAILURE" : null, features, failure);
+	}
+
+	void insertStep(UUID session, int stepNumber, String provider, String status, String failureType, String features,
+			String failure) {
 		jdbc.update("""
-				INSERT INTO acquisition_step (id, session_id, step_number, provider_id, status, failure_reason,
+				INSERT INTO acquisition_step (id, session_id, step_number, provider_id, status, failure_type, failure_reason,
 				    returned_features, configured_cost, charged_cost, simulated_latency_ms, execution_ms, created_at)
-				VALUES (?, ?, ?, ?, ?, ?, ?::jsonb, 1.0, 1.0, 150, 3, ?)
-				""", UUID.randomUUID(), session, stepNumber, provider, status, failure, features, now());
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?::jsonb, 1.0, 1.0, 150, 3, ?)
+				""", UUID.randomUUID(), session, stepNumber, provider, status, failureType, failure, features, now());
 	}
 
 	@Test
@@ -124,6 +129,20 @@ class AcquisitionSchemaTests {
 		assertThatThrownBy(() -> insertSession("validation", "COMPLETED", null))
 			.isInstanceOf(DataIntegrityViolationException.class);
 		assertThatCode(() -> insertSession("validation", "COMPLETED", "ALL_PROVIDERS_ACQUIRED"))
+			.doesNotThrowAnyException();
+	}
+
+	@Test
+	void failedStepsNeedAFailureTypeAndSuccessfulStepsNone() {
+		UUID session = insertActiveSession();
+		assertThatThrownBy(() -> insertStep(session, 1, "BILLING_HISTORY", "FAILED", null, null, "x"))
+			.isInstanceOf(DataIntegrityViolationException.class);
+		assertThatThrownBy(() -> insertStep(session, 1, "BILLING_HISTORY", "FAILED", "SLOW", null, "x"))
+			.isInstanceOf(DataIntegrityViolationException.class);
+		assertThatThrownBy(
+				() -> insertStep(session, 1, "BILLING_HISTORY", "SUCCESS", "TIMEOUT", "{\"BILL_AMT2\": 1}", null))
+			.isInstanceOf(DataIntegrityViolationException.class);
+		assertThatCode(() -> insertStep(session, 1, "BILLING_HISTORY", "FAILED", "TIMEOUT", null, "timeout"))
 			.doesNotThrowAnyException();
 	}
 

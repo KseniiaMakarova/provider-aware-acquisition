@@ -45,7 +45,7 @@ class SessionController {
 	/** Starts a session from the initial information and returns it with the initial prediction. */
 	@PostMapping
 	ResponseEntity<SessionResponse> create(@Valid @RequestBody CreateSessionRequest request) {
-		SessionHistory history = sessions.create(request.recordId(), request.policyId());
+		SessionHistory history = sessions.create(request.recordId(), request.policyId(), request.scenarioId());
 		SessionResponse body = toResponse(history);
 		return ResponseEntity.created(URI.create("/api/v1/sessions/" + body.sessionId())).body(body);
 	}
@@ -56,7 +56,8 @@ class SessionController {
 	}
 
 	private SessionResponse toResponse(SessionHistory history) {
-		return SessionResponse.of(history, config.providerIds(), sessions.remainingProviders(history));
+		return SessionResponse.of(history, config.providerIds(), sessions.providersOf(history),
+				sessions.remainingProviders(history));
 	}
 
 }

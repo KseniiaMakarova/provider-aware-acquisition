@@ -11,6 +11,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.within;
 
+import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -19,6 +20,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import edu.auk.acquisition.prediction.ValueEstimate;
+import edu.auk.acquisition.provider.ProviderMetadata;
+import edu.auk.acquisition.scenario.ProviderSettings;
 
 class AdaptivePolicyTest {
 
@@ -91,6 +94,25 @@ class AdaptivePolicyTest {
 			.selectNext(initial(providers(provider("REPAYMENT_HISTORY", 1, 200, true, 0.9)), typicalInitial()));
 		assertThat(acquired(decision)).isEqualTo("PAYMENT_HISTORY");
 		assertThat(candidate(decision, "REPAYMENT_HISTORY").score()).isCloseTo(0.007, within(1e-12));
+	}
+
+	@Test
+	void timeoutRiskAndSlowCallsLowerTheScore() {
+		// Repayment takes 600-1400 ms with a 1000 ms timeout: it succeeds with probability 401/801 and takes
+		// about 900 ms on average, so its score drops below Payment's.
+		ProviderMetadata slow = provider("REPAYMENT_HISTORY",
+				new ProviderSettings(BigDecimal.ONE, 600, true, 0.0, 1000L, 800));
+		ValueEstimate estimate = estimate("REPAYMENT_HISTORY", 0.02, "BILLING_HISTORY", 0.007, "PAYMENT_HISTORY", 0.019);
+		AcquisitionDecision decision = policy.selectNext(initial(providers(slow), estimate));
+
+		assertThat(acquired(decision)).isEqualTo("PAYMENT_HISTORY");
+		DecisionDetails.Candidate repayment = candidate(decision, "REPAYMENT_HISTORY");
+		double success = 401.0 / 801;
+		assertThat(repayment.timeoutProbability()).isCloseTo(400.0 / 801, within(1e-12));
+		assertThat(repayment.successProbability()).isCloseTo(success, within(1e-12));
+		assertThat(repayment.timeoutMs()).isEqualTo(1000L);
+		assertThat(repayment.score()).isCloseTo(
+				success * 0.02 - 0.01 * success - 0.005 * slow.expectedLatencyMs() / 1000, within(1e-12));
 	}
 
 	@Test

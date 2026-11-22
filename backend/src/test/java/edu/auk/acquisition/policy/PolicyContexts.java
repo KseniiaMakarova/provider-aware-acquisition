@@ -11,6 +11,7 @@ import edu.auk.acquisition.feature.FeatureConfiguration;
 import edu.auk.acquisition.feature.ObservedFeatures;
 import edu.auk.acquisition.prediction.ValueEstimate;
 import edu.auk.acquisition.provider.ProviderMetadata;
+import edu.auk.acquisition.scenario.ProviderSettings;
 
 /** Builds policy contexts for unit tests. */
 final class PolicyContexts {
@@ -21,8 +22,11 @@ final class PolicyContexts {
 	}
 
 	static ProviderMetadata provider(String id, double cost, long latencyMs, boolean available, double failureRate) {
-		return new ProviderMetadata(id, "", config.provider(id).orElseThrow().features(), BigDecimal.valueOf(cost),
-				latencyMs, available, failureRate);
+		return provider(id, new ProviderSettings(BigDecimal.valueOf(cost), latencyMs, available, failureRate));
+	}
+
+	static ProviderMetadata provider(String id, ProviderSettings settings) {
+		return ProviderMetadata.of(config.provider(id).orElseThrow(), settings);
 	}
 
 	/** The neutral scenario: cost 1, 200 ms, available, never fails. */

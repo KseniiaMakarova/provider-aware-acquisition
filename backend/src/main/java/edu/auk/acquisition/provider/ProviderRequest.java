@@ -1,6 +1,10 @@
 package edu.auk.acquisition.provider;
 
-/** What a provider needs for one call: only the key of the record being acquired. */
-public record ProviderRequest(String recordId) {
+import edu.auk.acquisition.scenario.ProviderScenario;
 
+/**
+ * What a provider needs for one call: the key of the record being acquired and the session's
+ * scenario, which simulated providers use to simulate their latency and failures.
+ */
+public record ProviderRequest(String recordId, ProviderScenario scenario) {
 }

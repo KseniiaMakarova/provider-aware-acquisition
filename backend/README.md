@@ -27,18 +27,27 @@ sources) starts the backend with a temporary PostgreSQL container instead of the
 
 | Method and path | Purpose |
 |---|---|
-| `GET /api/v1/providers` | Providers, their features and the active scenario's cost, latency, availability and failure rate |
+| `GET /api/v1/providers?scenarioId=` | Providers, their features and their characteristics in a scenario (default scenario if omitted): cost, latency, jitter, timeout, availability, failure rate and the derived timeout and success probabilities |
+| `GET /api/v1/scenarios` | The predefined scenarios a session can choose, with every provider's characteristics |
 | `GET /api/v1/policies` | Acquisition policies with their versions and decision parameters |
-| `POST /api/v1/sessions` `{"recordId", "policyId"}` | Start a session; returns 201 with the initial prediction |
+| `POST /api/v1/sessions` `{"recordId", "policyId", "scenarioId"}` | Start a session (`scenarioId` optional, the default scenario if omitted); returns 201 with the initial prediction |
 | `GET /api/v1/sessions/{id}` | Session state and history, with the details of every decision and the stop explanation |
 | `POST /api/v1/sessions/{id}/advance` | One decision: `ACQUIRED`, `PROVIDER_FAILED` or `STOPPED`, with its reason and details |
 | `GET /actuator/health` | Health check |
+
+Every session runs with one scenario, chosen when it is created and stored with it as a snapshot, so later
+edits of a scenario file do not change how the session is continued or explained. A simulated provider
+call takes the scenario latency plus reproducible jitter; if that exceeds the provider's timeout, the
+call is a failed step of type `TIMEOUT`: it is charged the timeout, costs nothing, reveals nothing and is
+not retried. Other failed calls have type `FAILURE`. Simulated time is recorded, never waited for, and is
+separate from the real HTTP timeouts to the ML service (1 s connect, 3 s read), which leave the session
+unchanged.
 
 Policies:
 
 | Policy | Behavior |
 |---|---|
-| `ADAPTIVE` | Asks the ML service for the expected information gain of each feasible provider and acquires the one with the highest positive score `(1 − f)·EIG − λ_cost·(1 − f)·cost − λ_time·latency`; stops with `INSUFFICIENT_EXPECTED_BENEFIT` when no score is positive. Parameters in `../config/policies/adaptive-v1.json` |
+| `ADAPTIVE` | Asks the ML service for the expected information gain of each feasible provider and acquires the one with the highest positive score `s·EIG − λ_cost·s·cost − λ_time·latency`, where `s = (1 − failure rate)·(1 − timeout probability)` and the latency is the mean simulated time of a call, capped at the timeout (without timeouts and jitter: `(1 − f)·EIG − λ_cost·(1 − f)·cost − λ_time·latency`); stops with `INSUFFICIENT_EXPECTED_BENEFIT` when no score is positive. Parameters in `../config/policies/adaptive-v1.json` |
 | `FIXED_ORDER` | Providers in configuration order until none is left |
 | `FULL_ACQUISITION` | Reference: every available provider, in configuration order. Without budgets it acquires the same providers as `FIXED_ORDER` |
 
@@ -57,13 +66,14 @@ variable:
 |---|---|---|
 | `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` | `localhost`, `5432`, `acquisition`, `acquisition`, `acquisition` | Database connection |
 | `FEATURE_CONFIG` | `../config/feature-groups.json` | Shared feature grouping |
-| `SCENARIO_CONFIG` | `../config/scenarios/default.json` | Provider scenario |
+| `SCENARIOS_DIR` | `../config/scenarios` | Folder with the predefined provider scenarios (every `*.json` file) |
+| `DEFAULT_SCENARIO` | `default-v1` | Scenario of sessions that do not choose one |
 | `ADAPTIVE_POLICY_CONFIG` | `../config/policies/adaptive-v1.json` | Parameters of the adaptive policy |
 | `DATASET_FEATURES_DIR` | `../data/features` | Folder with the label-free `<split>.csv` files |
 | `DATASET_ACCESS_MODE` | `DEVELOPMENT` | `DEVELOPMENT` serves validation records; `FINAL_EVALUATION` serves test records and requires the Spring profile `final-evaluation` |
 | `ML_SERVICE_URL` | `http://localhost:8000` | ML service address |
 
-The application stops at startup if the feature configuration, the scenario, the adaptive policy
+The application stops at startup if the feature configuration, a scenario, the adaptive policy
 settings or the feature file is invalid, or if the access mode and profile do not match. It always runs in UTC.
 
 ## Code structure
@@ -77,7 +87,7 @@ Packages under `src/main/java/edu/auk/acquisition`:
 | `policy` | `AcquisitionPolicy`, `AcquisitionContext`, `AcquisitionDecision`, `DecisionDetails`, `AdaptivePolicy` and its settings, `FixedOrderPolicy`, `FullAcquisitionPolicy` |
 | `provider` | `InformationProvider`, `ProviderRegistry`, `ProviderExecutor` |
 | `provider.simulated` | `SimulatedProvider` |
-| `scenario` | `ProviderScenario`, scenario loading and validation |
+| `scenario` | `ProviderScenario`, `ProviderSettings` (timeout and jitter), `ScenarioCatalog`, loading and validation |
 | `prediction` | `PredictionClient` (prediction and value estimates) and its HTTP implementation |
 | `dataset` | `RestrictedRecordReader`, dataset access modes |
 | `feature` | `FeatureConfiguration`, `ObservedFeatures` |

@@ -1,0 +1,10 @@
+{
+  "scenarioVersion": "unreliable-v1",
+  "description": "Unreliable providers: Repayment History is slow (600-1400 ms, timeout 1000 ms) and fails 10% of the time; Billing History fails 30% of the time; Payment History takes 300-700 ms with a 600 ms timeout. Demonstration scenario, not calibrated.",
+  "seed": 42,
+  "providers": {
+    "REPAYMENT_HISTORY": { "cost": 1.0, "latencyMs": 600, "latencyJitterMs": 800, "timeoutMs": 1000, "available": true, "failureRate": 0.1 },
+    "BILLING_HISTORY": { "cost": 1.0, "latencyMs": 200, "available": true, "failureRate": 0.3 },
+    "PAYMENT_HISTORY": { "cost": 1.0, "latencyMs": 300, "latencyJitterMs": 400, "timeoutMs": 600, "available": true, "failureRate": 0.0 }
+  }
+}

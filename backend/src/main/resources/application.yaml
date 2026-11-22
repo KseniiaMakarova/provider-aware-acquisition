@@ -15,7 +15,9 @@ spring:
 acquisition:
   # Paths are relative to the working directory (the backend module when run from Maven or IntelliJ).
   feature-config: ${FEATURE_CONFIG:../config/feature-groups.json}
-  scenario-config: ${SCENARIO_CONFIG:../config/scenarios/default.json}
+  # Predefined provider scenarios (every *.json file of the folder); a session may choose one.
+  scenarios-dir: ${SCENARIOS_DIR:../config/scenarios}
+  default-scenario: ${DEFAULT_SCENARIO:default-v1}
   # Versioned parameters of the ADAPTIVE policy (provisional experimental values).
   adaptive-policy-config: ${ADAPTIVE_POLICY_CONFIG:../config/policies/adaptive-v1.json}
   dataset:

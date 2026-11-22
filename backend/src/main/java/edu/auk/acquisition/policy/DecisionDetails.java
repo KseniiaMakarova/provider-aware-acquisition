@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 import edu.auk.acquisition.prediction.ValueEstimate;
 import edu.auk.acquisition.provider.ProviderMetadata;
 
@@ -18,6 +20,7 @@ import edu.auk.acquisition.provider.ProviderMetadata;
  * @param action     {@code ACQUIRE} or {@code STOP}
  * @param estimation the value estimate's method and versions, or {@code null} for policies without estimates
  */
+@JsonIgnoreProperties(ignoreUnknown = true)
 public record DecisionDetails(String policyId, String policyVersion, Map<String, Object> parameters, String action,
 		Estimation estimation, List<Candidate> candidates) {
 
@@ -33,6 +36,7 @@ public record DecisionDetails(String policyId, String policyVersion, Map<String,
 	/**
 	 * @param currentProbability the model's prediction for the observed state, as returned with the estimate
 	 */
+	@JsonIgnoreProperties(ignoreUnknown = true)
 	public record Estimation(String method, int sampleSize, String referenceVersion, String modelVersion,
 			double currentProbability) {
 
@@ -44,16 +48,30 @@ public record DecisionDetails(String policyId, String policyVersion, Map<String,
 	}
 
 	/**
-	 * One provider as the policy saw it. Estimate fields, price and score are {@code null} when
-	 * the policy did not evaluate the provider.
+	 * One provider as the policy saw it: its characteristics in the session's scenario and, if the
+	 * policy evaluated it, its estimate, price and score (otherwise {@code null}).
 	 *
-	 * @param status FEASIBLE, ACQUIRED, FAILED_EARLIER or UNAVAILABLE
-	 * @param price  operational price in bits: {@code λ_cost·(1−f)·cost + λ_time·latency}
-	 * @param score  net expected value in bits: {@code (1−f)·EIG − price}
+	 * @param status             FEASIBLE, ACQUIRED, FAILED_EARLIER or UNAVAILABLE
+	 * @param successProbability {@code s = (1 − failureRate)·(1 − timeoutProbability)}
+	 * @param expectedLatencyMs  mean simulated time of a call, capped at the timeout
+	 * @param price              operational price in bits: {@code λ_cost·s·cost + λ_time·expectedLatency}
+	 * @param score              net expected value in bits: {@code s·EIG − price}
 	 */
-	public record Candidate(String providerId, String status, BigDecimal cost, long latencyMs, double failureRate,
-			Double expectedInformationGainBits, Double expectedProbability, Double expectedAbsoluteChange,
-			Double price, Double score, boolean selected) {
+	@JsonIgnoreProperties(ignoreUnknown = true)
+	public record Candidate(String providerId, String status, BigDecimal cost, long latencyMs, long latencyJitterMs,
+			Long timeoutMs, double failureRate, double timeoutProbability, double successProbability,
+			double expectedLatencyMs, Double expectedInformationGainBits, Double expectedProbability,
+			Double expectedAbsoluteChange, Double price, Double score, boolean selected) {
+
+		static Candidate of(ProviderMetadata p, String status, ValueEstimate.ProviderValue value, Double price,
+				Double score, boolean selected) {
+			return new Candidate(p.id(), status, p.cost(), p.latencyMs(), p.latencyJitterMs(), p.timeoutMs(),
+					p.failureRate(), p.timeoutProbability(), p.successProbability(), p.expectedLatencyMs(),
+					value == null ? null : value.expectedInformationGainBits(),
+					value == null ? null : value.expectedProbability(),
+					value == null ? null : value.expectedAbsoluteChange(), price, score, selected);
+		}
+
 	}
 
 	public static final String FEASIBLE = "FEASIBLE";
@@ -81,8 +99,7 @@ public record DecisionDetails(String policyId, String policyVersion, Map<String,
 			if (evaluated != null) {
 				return evaluated;
 			}
-			return new Candidate(p.id(), status(p, context), p.cost(), p.expectedLatencyMs(), p.failureRate(), null, null,
-					null, null, null, p.id().equals(selected));
+			return Candidate.of(p, status(p, context), null, null, null, p.id().equals(selected));
 		}).toList();
 	}
 

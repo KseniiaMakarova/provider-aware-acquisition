@@ -9,24 +9,22 @@ import java.util.Optional;
 import edu.auk.acquisition.feature.FeatureConfiguration;
 import edu.auk.acquisition.feature.ProviderGroup;
 import edu.auk.acquisition.scenario.ProviderScenario;
-import edu.auk.acquisition.scenario.ProviderSettings;
 
 /**
- * The configured providers and their characteristics in the active scenario.
+ * The configured providers and their implementations.
  *
- * <p>Provider definitions (which features) come from the feature configuration; cost, latency
- * and availability come from the scenario, so either can change without the other.
+ * <p>Provider definitions (which features) come from the feature configuration; cost, latency,
+ * timeout and availability come from a scenario, so either can change without the other. Each
+ * session runs with its own scenario.
  */
 public class ProviderRegistry {
 
 	private final FeatureConfiguration config;
-	private final ProviderScenario scenario;
+
 	private final Map<String, InformationProvider> providers = new HashMap<>();
 
-	public ProviderRegistry(FeatureConfiguration config, ProviderScenario scenario,
-			Collection<? extends InformationProvider> implementations) {
+	public ProviderRegistry(FeatureConfiguration config, Collection<? extends InformationProvider> implementations) {
 		this.config = config;
-		this.scenario = scenario;
 		for (InformationProvider provider : implementations) {
 			if (providers.put(provider.id(), provider) != null) {
 				throw new IllegalStateException("More than one implementation for provider " + provider.id());
@@ -47,32 +45,25 @@ public class ProviderRegistry {
 		}
 	}
 
-	public ProviderScenario scenario() {
-		return scenario;
+	/** All configured providers in feature-configuration order, with their characteristics in the scenario. */
+	public List<ProviderMetadata> metadata(ProviderScenario scenario) {
+		return config.providers().stream().map(g -> ProviderMetadata.of(g, scenario.settings(g.id()))).toList();
 	}
 
-	/** All configured providers in feature-configuration order. */
-	public List<ProviderMetadata> metadata() {
-		return config.providers().stream().map(this::metadataOf).toList();
-	}
-
-	public Optional<ProviderMetadata> metadata(String providerId) {
-		return config.provider(providerId).map(this::metadataOf);
+	public Optional<ProviderMetadata> metadata(String providerId, ProviderScenario scenario) {
+		return config.provider(providerId).map(g -> ProviderMetadata.of(g, scenario.settings(g.id())));
 	}
 
 	/** Available providers that have not been attempted yet in this session (FR-5, FR-9). */
-	public List<ProviderMetadata> feasibleProviders(Collection<String> attempted) {
-		return metadata().stream().filter(ProviderMetadata::available).filter(m -> !attempted.contains(m.id())).toList();
+	public List<ProviderMetadata> feasibleProviders(ProviderScenario scenario, Collection<String> attempted) {
+		return metadata(scenario).stream()
+			.filter(ProviderMetadata::available)
+			.filter(m -> !attempted.contains(m.id()))
+			.toList();
 	}
 
 	InformationProvider implementation(String providerId) {
 		return providers.get(providerId);
-	}
-
-	private ProviderMetadata metadataOf(ProviderGroup group) {
-		ProviderSettings settings = scenario.settings(group.id());
-		return new ProviderMetadata(group.id(), group.description(), group.features(), settings.cost(),
-				settings.latencyMs(), settings.available(), settings.failureRate());
 	}
 
 }

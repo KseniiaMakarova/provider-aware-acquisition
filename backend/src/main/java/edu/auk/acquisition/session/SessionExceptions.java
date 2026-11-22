@@ -1,5 +1,6 @@
 package edu.auk.acquisition.session;
 
+import java.util.Collection;
 import java.util.Set;
 import java.util.UUID;
 
@@ -30,6 +31,14 @@ public final class SessionExceptions {
 
 		public UnsupportedPolicyException(String policyId, Set<String> supported) {
 			super("Policy " + policyId + " is not supported; available: " + supported);
+		}
+
+	}
+
+	public static class UnsupportedScenarioException extends RuntimeException {
+
+		public UnsupportedScenarioException(String scenarioId, Collection<String> available) {
+			super("Scenario " + scenarioId + " is not configured; available: " + available);
 		}
 
 	}

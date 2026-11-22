@@ -20,10 +20,13 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 import edu.auk.acquisition.SharedFeatureConfig;
 import edu.auk.acquisition.TestDataset;
+import edu.auk.acquisition.TestScenarios;
 import edu.auk.acquisition.TestcontainersConfiguration;
 import edu.auk.acquisition.feature.FeatureConfiguration;
 import edu.auk.acquisition.feature.InvalidObservationException;
 import edu.auk.acquisition.feature.ObservedFeatures;
+import edu.auk.acquisition.scenario.ProviderScenario;
+import edu.auk.acquisition.scenario.ProviderSettings;
 import edu.auk.acquisition.session.AcquisitionSession;
 import edu.auk.acquisition.session.AcquisitionStep;
 import edu.auk.acquisition.session.PredictionSnapshot;
@@ -45,10 +48,14 @@ class JdbcSessionRepositoryTest {
 	@Autowired
 	JdbcTemplate jdbc;
 
+	/** A scenario with every kind of setting, so the stored snapshot can be compared field by field. */
+	static final ProviderScenario SCENARIO = TestScenarios.neutral("default-v1",
+			Map.of("PAYMENT_HISTORY", new ProviderSettings(new BigDecimal("2.5"), 300, true, 0.25, 600L, 400)));
+
 	static AcquisitionSession session(Map<String, Double> values) {
 		return new AcquisitionSession(UUID.randomUUID(), "101", "validation", "DEVELOPMENT", "FIXED_ORDER", "default-v1",
-				config.version(), "mask-hgb-test", SessionStatus.ACTIVE, null, null, null, ObservedFeatures.of(values, config),
-				BigDecimal.ZERO, 0, 4, NOW, NOW);
+				SCENARIO, config.version(), "mask-hgb-test", SessionStatus.ACTIVE, null, null, null,
+				ObservedFeatures.of(values, config), BigDecimal.ZERO, 0, 4, NOW, NOW);
 	}
 
 	static Map<String, Double> initialValues() {
@@ -181,7 +188,7 @@ class JdbcSessionRepositoryTest {
 		repository.claim(session.id(), lost, now.minusSeconds(3600), now.minusSeconds(7200));
 		repository.claim(session.id(), UUID.randomUUID(), now, now.minusSeconds(30)); // takes over the stale claim
 
-		AcquisitionStep step = new AcquisitionStep(1, "BILLING_HISTORY", "test", "FAILED", "down", null,
+		AcquisitionStep step = new AcquisitionStep(1, "BILLING_HISTORY", "test", "FAILED", "FAILURE", "down", null,
 				BigDecimal.ONE, BigDecimal.ZERO, 200, 1, null, null, NOW);
 		assertThatThrownBy(() -> repository.saveAdvance(lost, session, step, null))
 			.isInstanceOf(ClaimLostException.class);
@@ -191,9 +198,29 @@ class JdbcSessionRepositoryTest {
 
 	static AcquisitionSession completed(AcquisitionSession s) {
 		return new AcquisitionSession(s.id(), s.recordId(), s.datasetSplit(), s.accessMode(), s.policyId(),
-				s.scenarioVersion(), s.featureConfigVersion(), s.modelVersion(), SessionStatus.COMPLETED,
-				"NO_FEASIBLE_PROVIDERS", "No available provider left", null, s.observed(), s.totalCost(), s.accumulatedSimulatedMs(), s.executionMs(),
-				s.createdAt(), s.updatedAt());
+				s.scenarioVersion(), s.scenario(), s.featureConfigVersion(), s.modelVersion(), SessionStatus.COMPLETED,
+				"NO_FEASIBLE_PROVIDERS", "No available provider left", null, s.observed(), s.totalCost(),
+				s.accumulatedSimulatedMs(), s.executionMs(), s.createdAt(), s.updatedAt());
+	}
+
+	@Test
+	void timedOutStepKeepsItsFailureType() {
+		AcquisitionSession session = session(initialValues());
+		repository.insertNew(session, new PredictionSnapshot(0, 0.3, config.initialFeatures(), "mask-hgb-test",
+				config.version(), NOW));
+		UUID token = UUID.randomUUID();
+		repository.claim(session.id(), token, NOW, NOW.minusSeconds(30));
+		AcquisitionStep step = new AcquisitionStep(1, "PAYMENT_HISTORY", "test", "FAILED", "TIMEOUT",
+				"Simulated timeout: no response within 600 ms", null, new BigDecimal("2.5"), BigDecimal.ZERO, 600, 1, null,
+				null, NOW);
+
+		repository.saveAdvance(token, session, step, null);
+
+		AcquisitionStep loaded = repository.find(session.id()).orElseThrow().steps().getFirst();
+		assertThat(loaded.failureType()).isEqualTo("TIMEOUT");
+		assertThat(loaded.simulatedLatencyMs()).isEqualTo(600);
+		assertThat(repository.find(session.id()).orElseThrow().session().scenario().settings("PAYMENT_HISTORY").timeoutMs())
+			.isEqualTo(600L);
 	}
 
 	@Test

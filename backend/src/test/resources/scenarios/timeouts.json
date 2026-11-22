@@ -1,0 +1,10 @@
+{
+  "scenarioVersion": "test-timeouts",
+  "description": "Repayment History works; Billing History always fails; Payment History always times out (800 ms > 500 ms)",
+  "seed": 42,
+  "providers": {
+    "REPAYMENT_HISTORY": { "cost": 1.0, "latencyMs": 200, "available": true, "failureRate": 0.0 },
+    "BILLING_HISTORY": { "cost": 1.0, "latencyMs": 450, "available": true, "failureRate": 1.0 },
+    "PAYMENT_HISTORY": { "cost": 2.0, "latencyMs": 800, "timeoutMs": 500, "available": true, "failureRate": 0.0 }
+  }
+}

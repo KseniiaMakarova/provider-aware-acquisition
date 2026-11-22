@@ -61,7 +61,12 @@ class ProviderScenarioTest {
 						(Consumer<ObjectNode>) root -> provider(root, "PAYMENT_HISTORY").remove("available"), "available"),
 				Arguments.of("version missing", (Consumer<ObjectNode>) root -> root.remove("scenarioVersion"),
 						"scenarioVersion"),
-				Arguments.of("seed missing", (Consumer<ObjectNode>) root -> root.remove("seed"), "seed"));
+				Arguments.of("seed missing", (Consumer<ObjectNode>) root -> root.remove("seed"), "seed"),
+				Arguments.of("timeout not positive",
+						(Consumer<ObjectNode>) root -> provider(root, "PAYMENT_HISTORY").put("timeoutMs", 0), "timeoutMs"),
+				Arguments.of("negative jitter",
+						(Consumer<ObjectNode>) root -> provider(root, "PAYMENT_HISTORY").put("latencyJitterMs", -1),
+						"latencyJitterMs"));
 	}
 
 	@ParameterizedTest(name = "{0}")

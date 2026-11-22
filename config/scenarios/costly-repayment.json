@@ -1,0 +1,10 @@
+{
+  "scenarioVersion": "costly-repayment-v1",
+  "description": "Repayment History is expensive (cost 10); the other providers are as in default-v1. Demonstration scenario, not calibrated.",
+  "seed": 42,
+  "providers": {
+    "REPAYMENT_HISTORY": { "cost": 10.0, "latencyMs": 200, "available": true, "failureRate": 0.0 },
+    "BILLING_HISTORY": { "cost": 1.0, "latencyMs": 200, "available": true, "failureRate": 0.0 },
+    "PAYMENT_HISTORY": { "cost": 1.0, "latencyMs": 200, "available": true, "failureRate": 0.0 }
+  }
+}
