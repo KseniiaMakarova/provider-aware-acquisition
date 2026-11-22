@@ -41,12 +41,23 @@ grouping or the model:
 |---|---|
 | `cost` | Charged for a successful call, in experimental units |
 | `latencyMs` | Simulated duration of a call; recorded, not waited for |
+| `latencyJitterMs` | Optional: a reproducible extra duration between 0 and this value is added to each call (default 0) |
+| `timeoutMs` | Optional: a call that takes longer times out, is charged this time and reveals nothing (default: no timeout) |
 | `available` | Unavailable providers are never selected or called |
 | `failureRate` | Share of calls that fail; decided from `seed`, the record and the provider, so results repeat exactly |
 
-A scenario must define every configured provider. `default.json` is neutral: all providers have the
-same cost and latency, are available and never fail. To use another scenario, add a file here and
-set `SCENARIO_CONFIG` for the backend, or `SCENARIO=<file name without .json>` for Docker Compose.
+A scenario must define every configured provider. The backend loads every file in this folder; each
+session chooses one by its `scenarioVersion` (the default is `default-v1`, changed with `DEFAULT_SCENARIO`
+for the backend or `SCENARIO=<version>` for Docker Compose).
+
+| File | Version | Purpose |
+|---|---|---|
+| `default.json` | `default-v1` | Neutral: same cost and latency, all available, no failures |
+| `costly-repayment.json` | `costly-repayment-v1` | Repayment History costs 10 |
+| `repayment-unavailable.json` | `repayment-unavailable-v1` | Repayment History is unavailable |
+| `unreliable.json` | `unreliable-v1` | Failures, latency jitter and timeouts |
+
+The last three are demonstration scenarios for the MVP, not calibrated experimental scenarios.
 
 ## `policies/`
 

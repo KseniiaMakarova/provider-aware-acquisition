@@ -20,7 +20,8 @@ import org.springframework.validation.annotation.Validated;
  * as {@code ../config} when the application runs from a packaged jar.
  *
  * @param featureConfig        path of the shared feature/provider grouping file
- * @param scenarioConfig       path of the provider scenario (cost, latency, availability, failures)
+ * @param scenariosDir         folder with the predefined provider scenarios (one JSON file each)
+ * @param defaultScenario      version of the scenario used when a session does not choose one
  * @param adaptivePolicyConfig path of the versioned adaptive policy settings
  * @param mlService            connection settings for the Python inference service
  * @param advanceLease         how long one /advance may hold its claim on a session before another
@@ -28,15 +29,16 @@ import org.springframework.validation.annotation.Validated;
  */
 @Validated
 @ConfigurationProperties("acquisition")
-public record AcquisitionProperties(@NotBlank String featureConfig, @NotBlank String scenarioConfig,
-		@NotBlank String adaptivePolicyConfig, @NotNull @Valid MlService mlService, @NotNull Duration advanceLease) {
+public record AcquisitionProperties(@NotBlank String featureConfig, @NotBlank String scenariosDir,
+		@NotBlank String defaultScenario, @NotBlank String adaptivePolicyConfig, @NotNull @Valid MlService mlService,
+		@NotNull Duration advanceLease) {
 
 	public Path featureConfigPath() {
 		return Path.of(featureConfig);
 	}
 
-	public Path scenarioConfigPath() {
-		return Path.of(scenarioConfig);
+	public Path scenariosDirPath() {
+		return Path.of(scenariosDir);
 	}
 
 	public Path adaptivePolicyConfigPath() {

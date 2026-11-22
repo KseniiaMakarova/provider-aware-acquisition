@@ -3,6 +3,7 @@ package edu.auk.acquisition.session;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -29,11 +30,16 @@ import edu.auk.acquisition.prediction.PredictionClient;
 import edu.auk.acquisition.prediction.PredictionUnavailableException;
 import edu.auk.acquisition.prediction.ValueEstimate;
 import edu.auk.acquisition.provider.InformationProvider;
+import edu.auk.acquisition.provider.ProviderMetadata;
 import edu.auk.acquisition.provider.ProviderRegistry;
 import edu.auk.acquisition.provider.simulated.SimulatedProvider;
+import edu.auk.acquisition.scenario.ProviderScenario;
+import edu.auk.acquisition.scenario.ProviderSettings;
+import edu.auk.acquisition.scenario.ScenarioCatalog;
 import edu.auk.acquisition.session.SessionExceptions.SessionNotFoundException;
 import edu.auk.acquisition.session.SessionExceptions.UnknownRecordException;
 import edu.auk.acquisition.session.SessionExceptions.UnsupportedPolicyException;
+import edu.auk.acquisition.session.SessionExceptions.UnsupportedScenarioException;
 
 class SessionServiceTest {
 
@@ -99,21 +105,27 @@ class SessionServiceTest {
 	};
 
 	final SessionService service = new SessionService(new InitialInformationLoader(reader, config), predictionClient,
-			repository, registry(), new PolicyRegistry(List.of(new FixedOrderPolicy(config.providerIds()))), config,
-			Clock.fixed(NOW, ZoneOffset.UTC));
+			repository, registry(), scenarios(), new PolicyRegistry(List.of(new FixedOrderPolicy(config.providerIds()))),
+			config, Clock.fixed(NOW, ZoneOffset.UTC));
+
+	static final ProviderScenario BILLING_DOWN = TestScenarios.neutral("test-billing-down",
+			Map.of("BILLING_HISTORY", new ProviderSettings(BigDecimal.ONE, 200, false, 0.0)));
+
+	static ScenarioCatalog scenarios() {
+		return new ScenarioCatalog(List.of(TestScenarios.neutral(), BILLING_DOWN), "test-scenario");
+	}
 
 	static ProviderRegistry registry() {
-		var scenario = TestScenarios.neutral();
 		List<InformationProvider> providers = config.providers()
 			.stream()
-			.<InformationProvider>map(g -> new SimulatedProvider(g, reader, scenario))
+			.<InformationProvider>map(g -> new SimulatedProvider(g, reader))
 			.toList();
-		return new ProviderRegistry(config, scenario, providers);
+		return new ProviderRegistry(config, providers);
 	}
 
 	@Test
 	void newSessionObservesOnlyTheInitialFeaturesAndStoresTheInitialPrediction() {
-		SessionHistory history = service.create("101", "FIXED_ORDER");
+		SessionHistory history = service.create("101", "FIXED_ORDER", null);
 		AcquisitionSession session = history.session();
 
 		assertThat(session.observed().mask()).isEqualTo(config.initialFeatures());
@@ -137,7 +149,7 @@ class SessionServiceTest {
 
 	@Test
 	void theModelReceivesOnlyTheInitialFeatures() {
-		service.create("101", "FIXED_ORDER");
+		service.create("101", "FIXED_ORDER", null);
 
 		assertThat(predictionRequests).singleElement()
 			.satisfies(observed -> assertThat(observed.mask()).isEqualTo(config.initialFeatures()));
@@ -145,13 +157,13 @@ class SessionServiceTest {
 
 	@Test
 	void allProvidersRemainAtTheStart() {
-		SessionHistory history = service.create("101", "FIXED_ORDER");
+		SessionHistory history = service.create("101", "FIXED_ORDER", null);
 		assertThat(service.remainingProviders(history)).isEqualTo(config.providerIds());
 	}
 
 	@Test
 	void recordOutsideTheServedSplitIsRejectedAndNothingIsStored() {
-		assertThatThrownBy(() -> service.create("201", "FIXED_ORDER")).isInstanceOf(UnknownRecordException.class)
+		assertThatThrownBy(() -> service.create("201", "FIXED_ORDER", null)).isInstanceOf(UnknownRecordException.class)
 			.hasMessageContaining("validation");
 		assertThat(predictionRequests).isEmpty();
 		assertThat(stored).isEmpty();
@@ -160,16 +172,41 @@ class SessionServiceTest {
 	@Test
 	void mlOutageStoresNothing() {
 		mlAvailable = false;
-		assertThatThrownBy(() -> service.create("101", "FIXED_ORDER"))
+		assertThatThrownBy(() -> service.create("101", "FIXED_ORDER", null))
 			.isInstanceOf(PredictionUnavailableException.class);
 		assertThat(stored).isEmpty();
 	}
 
 	@Test
 	void unsupportedPolicyIsRejectedBeforeAnythingElse() {
-		assertThatThrownBy(() -> service.create("101", "ADAPTIVE")).isInstanceOf(UnsupportedPolicyException.class)
+		assertThatThrownBy(() -> service.create("101", "ADAPTIVE", null)).isInstanceOf(UnsupportedPolicyException.class)
 			.hasMessageContaining("FIXED_ORDER");
 		assertThat(predictionRequests).isEmpty();
+	}
+
+	@Test
+	void newSessionUsesAndKeepsTheDefaultScenario() {
+		AcquisitionSession session = service.create("101", "FIXED_ORDER", null).session();
+		assertThat(session.scenarioVersion()).isEqualTo("test-scenario");
+		assertThat(session.scenario()).isEqualTo(TestScenarios.neutral());
+	}
+
+	@Test
+	void chosenScenarioIsStoredAndDecidesTheRemainingProviders() {
+		SessionHistory history = service.create("101", "FIXED_ORDER", "test-billing-down");
+		assertThat(history.session().scenarioVersion()).isEqualTo("test-billing-down");
+		assertThat(history.session().scenario()).isEqualTo(BILLING_DOWN);
+		assertThat(service.remainingProviders(history)).containsExactly("REPAYMENT_HISTORY", "PAYMENT_HISTORY");
+		assertThat(service.providersOf(history)).extracting(ProviderMetadata::available).containsExactly(true, false, true);
+	}
+
+	@Test
+	void unknownScenarioIsRejectedBeforeAnythingIsStored() {
+		assertThatThrownBy(() -> service.create("101", "FIXED_ORDER", "storm-v9"))
+			.isInstanceOf(UnsupportedScenarioException.class)
+			.hasMessageContaining("test-billing-down");
+		assertThat(predictionRequests).isEmpty();
+		assertThat(stored).isEmpty();
 	}
 
 	@Test

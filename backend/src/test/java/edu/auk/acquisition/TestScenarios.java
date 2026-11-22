@@ -18,11 +18,15 @@ public final class TestScenarios {
 
 	/** Every provider: cost 1, latency 200 ms, available, never fails; individual providers can be overridden. */
 	public static ProviderScenario neutral(Map<String, ProviderSettings> overrides) {
+		return neutral("test-scenario", overrides);
+	}
+
+	public static ProviderScenario neutral(String version, Map<String, ProviderSettings> overrides) {
 		Map<String, ProviderSettings> settings = new HashMap<>();
 		SharedFeatureConfig.CONFIG.providerIds()
 			.forEach(id -> settings.put(id, new ProviderSettings(BigDecimal.ONE, 200, true, 0.0)));
 		settings.putAll(overrides);
-		return new ProviderScenario("test-scenario", "test", 42, settings);
+		return new ProviderScenario(version, "test", 42, settings);
 	}
 
 	public static ProviderScenario neutral() {

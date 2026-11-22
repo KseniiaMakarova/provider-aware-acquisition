@@ -8,18 +8,16 @@ import org.springframework.context.annotation.Configuration;
 import edu.auk.acquisition.dataset.RestrictedRecordReader;
 import edu.auk.acquisition.feature.FeatureConfiguration;
 import edu.auk.acquisition.provider.InformationProvider;
-import edu.auk.acquisition.scenario.ProviderScenario;
 
 @Configuration(proxyBeanMethods = false)
 class SimulatedProviderConfig {
 
 	/** One simulated provider per configured group. */
 	@Bean
-	List<InformationProvider> simulatedProviders(FeatureConfiguration config, RestrictedRecordReader reader,
-			ProviderScenario scenario) {
+	List<InformationProvider> simulatedProviders(FeatureConfiguration config, RestrictedRecordReader reader) {
 		return config.providers()
 			.stream()
-			.<InformationProvider>map(group -> new SimulatedProvider(group, reader, scenario))
+			.<InformationProvider>map(group -> new SimulatedProvider(group, reader))
 			.toList();
 	}
 

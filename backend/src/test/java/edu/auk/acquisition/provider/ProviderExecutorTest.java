@@ -50,12 +50,21 @@ class ProviderExecutorTest {
 
 	}
 
-	static ProviderExecutor executor(ProviderScenario scenario, Map<String, FakeProvider> overrides) {
+	/** An executor together with the scenario of the session it serves. */
+	record Setup(ProviderExecutor executor, ProviderScenario scenario) {
+
+		ProviderAttempt execute(String providerId, String recordId, Set<String> attempted) {
+			return executor.execute(providerId, recordId, attempted, scenario);
+		}
+
+	}
+
+	static Setup executor(ProviderScenario scenario, Map<String, FakeProvider> overrides) {
 		List<InformationProvider> providers = new ArrayList<>();
 		for (ProviderGroup group : config.providers()) {
 			providers.add(overrides.getOrDefault(group.id(), new FakeProvider(group, false, List.of(), 200)));
 		}
-		return new ProviderExecutor(new ProviderRegistry(config, scenario, providers));
+		return new Setup(new ProviderExecutor(new ProviderRegistry(config, providers)), scenario);
 	}
 
 	static ProviderGroup group(String id) {
@@ -77,6 +86,7 @@ class ProviderExecutorTest {
 		assertThat(attempt.chargedCost()).isEqualByComparingTo("2.5");
 		assertThat(attempt.simulatedLatencyMs()).isEqualTo(200);
 		assertThat(attempt.failureReason()).isNull();
+		assertThat(attempt.failureType()).isNull();
 	}
 
 	@Test
@@ -91,11 +101,12 @@ class ProviderExecutorTest {
 		assertThat(attempt.chargedCost()).isEqualByComparingTo("0");
 		assertThat(attempt.simulatedLatencyMs()).isEqualTo(450);
 		assertThat(attempt.failureReason()).isEqualTo("down");
+		assertThat(attempt.failureType()).isEqualTo(ProviderAttempt.FailureType.FAILURE);
 	}
 
 	@Test
 	void unavailableProviderIsNeverCalled() {
-		ProviderExecutor executor = executor(costing("BILLING_HISTORY", "1", false), Map.of());
+		Setup executor = executor(costing("BILLING_HISTORY", "1", false), Map.of());
 		assertThatThrownBy(() -> executor.execute("BILLING_HISTORY", "101", Set.of()))
 			.isInstanceOf(ProviderContractException.class)
 			.hasMessageContaining("unavailable");
@@ -103,7 +114,7 @@ class ProviderExecutorTest {
 
 	@Test
 	void providerIsNotCalledTwiceInASession() {
-		ProviderExecutor executor = executor(TestScenarios.neutral(), Map.of());
+		Setup executor = executor(TestScenarios.neutral(), Map.of());
 		assertThatThrownBy(() -> executor.execute("BILLING_HISTORY", "101", Set.of("BILLING_HISTORY")))
 			.isInstanceOf(ProviderContractException.class)
 			.hasMessageContaining("already attempted");
@@ -117,7 +128,7 @@ class ProviderExecutorTest {
 
 	@Test
 	void providerReturningAnotherGroupsFeaturesIsStopped() {
-		ProviderExecutor executor = executor(TestScenarios.neutral(), Map.of("BILLING_HISTORY",
+		Setup executor = executor(TestScenarios.neutral(), Map.of("BILLING_HISTORY",
 				new FakeProvider(group("BILLING_HISTORY"), false, List.of("PAY_0"), 200)));
 		assertThatThrownBy(() -> executor.execute("BILLING_HISTORY", "101", Set.of()))
 			.isInstanceOf(ProviderContractException.class)
@@ -128,6 +139,51 @@ class ProviderExecutorTest {
 	void attemptValuesCannotBeModified() {
 		ProviderAttempt attempt = executor(TestScenarios.neutral(), Map.of()).execute("BILLING_HISTORY", "101", Set.of());
 		assertThatThrownBy(() -> attempt.values().put("PAY_0", 1.0)).isInstanceOf(UnsupportedOperationException.class);
+	}
+
+	static ProviderScenario withTimeout(String id, long timeoutMs) {
+		return TestScenarios.neutral(Map.of(id, new ProviderSettings(new BigDecimal("2.5"), 300, true, 0.0, timeoutMs, 0)));
+	}
+
+	@Test
+	void callSlowerThanItsTimeoutTimesOutRevealsNothingAndIsChargedTheTimeout() {
+		ProviderAttempt attempt = executor(withTimeout("PAYMENT_HISTORY", 300),
+				Map.of("PAYMENT_HISTORY", new FakeProvider(group("PAYMENT_HISTORY"), false, List.of(), 450)))
+			.execute("PAYMENT_HISTORY", "101", Set.of());
+
+		assertThat(attempt.status()).isEqualTo(ProviderAttempt.Status.FAILED);
+		assertThat(attempt.failureType()).isEqualTo(ProviderAttempt.FailureType.TIMEOUT);
+		assertThat(attempt.failureReason()).contains("timeout", "300 ms");
+		assertThat(attempt.values()).isEmpty();
+		assertThat(attempt.chargedCost()).isEqualByComparingTo("0");
+		assertThat(attempt.configuredCost()).isEqualByComparingTo("2.5");
+		assertThat(attempt.simulatedLatencyMs()).isEqualTo(300);
+	}
+
+	@Test
+	void callTakingExactlyItsTimeoutSucceeds() {
+		ProviderAttempt attempt = executor(withTimeout("PAYMENT_HISTORY", 450),
+				Map.of("PAYMENT_HISTORY", new FakeProvider(group("PAYMENT_HISTORY"), false, List.of(), 450)))
+			.execute("PAYMENT_HISTORY", "101", Set.of());
+		assertThat(attempt.succeeded()).isTrue();
+		assertThat(attempt.simulatedLatencyMs()).isEqualTo(450);
+	}
+
+	@Test
+	void aFailingCallThatIsAlsoTooSlowCountsAsATimeout() {
+		ProviderAttempt attempt = executor(withTimeout("PAYMENT_HISTORY", 300),
+				Map.of("PAYMENT_HISTORY", new FakeProvider(group("PAYMENT_HISTORY"), true, List.of(), 450)))
+			.execute("PAYMENT_HISTORY", "101", Set.of());
+		assertThat(attempt.failureType()).isEqualTo(ProviderAttempt.FailureType.TIMEOUT);
+		assertThat(attempt.simulatedLatencyMs()).isEqualTo(300);
+	}
+
+	@Test
+	void theSameExecutorServesSessionsWithDifferentScenarios() {
+		Setup cheap = executor(costing("PAYMENT_HISTORY", "1", true), Map.of());
+		Setup expensive = new Setup(cheap.executor(), costing("PAYMENT_HISTORY", "9", true));
+		assertThat(cheap.execute("PAYMENT_HISTORY", "101", Set.of()).chargedCost()).isEqualByComparingTo("1");
+		assertThat(expensive.execute("PAYMENT_HISTORY", "101", Set.of()).chargedCost()).isEqualByComparingTo("9");
 	}
 
 }

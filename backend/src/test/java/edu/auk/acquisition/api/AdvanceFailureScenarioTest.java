@@ -25,7 +25,8 @@ import edu.auk.acquisition.TestcontainersConfiguration;
  */
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(properties = { TestDataset.FEATURES_DIR_PROPERTY,
-		"acquisition.scenario-config=src/test/resources/scenarios/billing-fails.json" })
+		"acquisition.scenarios-dir=src/test/resources/scenarios",
+		"acquisition.default-scenario=test-billing-fails" })
 @AutoConfigureMockMvc
 class AdvanceFailureScenarioTest extends AdvanceTestSupport {
 

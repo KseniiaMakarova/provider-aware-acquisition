@@ -22,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 import edu.auk.acquisition.feature.FeatureConfiguration;
 import edu.auk.acquisition.feature.ObservedFeatures;
 import edu.auk.acquisition.policy.DecisionDetails;
+import edu.auk.acquisition.scenario.ProviderScenario;
 import edu.auk.acquisition.session.AcquisitionSession;
 import edu.auk.acquisition.session.AcquisitionStep;
 import edu.auk.acquisition.session.PredictionSnapshot;
@@ -55,11 +56,11 @@ class JdbcSessionRepository implements SessionRepository {
 	public void insertNew(AcquisitionSession s, PredictionSnapshot initial) {
 		jdbc.sql("""
 				INSERT INTO acquisition_session (id, record_id, dataset_split, access_mode, policy_id, scenario_version,
-				    feature_config_version, model_version, status, stop_reason, observed_features, acquired_providers,
-				    total_cost, accumulated_simulated_ms, execution_ms, created_at, updated_at)
-				VALUES (:id, :recordId, :split, :accessMode, :policyId, :scenario, :featureConfig, :model, :status,
-				    :stopReason, CAST(:observed AS jsonb), CAST(:acquired AS jsonb), :totalCost, :simulatedMs,
-				    :executionMs, :createdAt, :updatedAt)
+				    scenario_snapshot, feature_config_version, model_version, status, stop_reason, observed_features,
+				    acquired_providers, total_cost, accumulated_simulated_ms, execution_ms, created_at, updated_at)
+				VALUES (:id, :recordId, :split, :accessMode, :policyId, :scenario, CAST(:scenarioSnapshot AS jsonb),
+				    :featureConfig, :model, :status, :stopReason, CAST(:observed AS jsonb), CAST(:acquired AS jsonb),
+				    :totalCost, :simulatedMs, :executionMs, :createdAt, :updatedAt)
 				""")
 			.param("id", s.id())
 			.param("recordId", s.recordId())
@@ -67,6 +68,7 @@ class JdbcSessionRepository implements SessionRepository {
 			.param("accessMode", s.accessMode())
 			.param("policyId", s.policyId())
 			.param("scenario", s.scenarioVersion())
+			.param("scenarioSnapshot", s.scenario() == null ? null : s.scenario().toJson())
 			.param("featureConfig", s.featureConfigVersion())
 			.param("model", s.modelVersion())
 			.param("status", s.status().name())
@@ -144,10 +146,11 @@ class JdbcSessionRepository implements SessionRepository {
 	private void insertStep(UUID sessionId, AcquisitionStep step) {
 		jdbc.sql("""
 				INSERT INTO acquisition_step (id, session_id, step_number, provider_id, decision_reason, status,
-				    failure_reason, returned_features, configured_cost, charged_cost, simulated_latency_ms, execution_ms,
-				    prediction_sequence_number, decision_details, created_at)
-				VALUES (:id, :sessionId, :stepNumber, :providerId, :reason, :status, :failure, CAST(:features AS jsonb),
-				    :configuredCost, :chargedCost, :simulatedMs, :executionMs, :sequence, CAST(:details AS jsonb), :createdAt)
+				    failure_type, failure_reason, returned_features, configured_cost, charged_cost, simulated_latency_ms,
+				    execution_ms, prediction_sequence_number, decision_details, created_at)
+				VALUES (:id, :sessionId, :stepNumber, :providerId, :reason, :status, :failureType, :failure,
+				    CAST(:features AS jsonb), :configuredCost, :chargedCost, :simulatedMs, :executionMs, :sequence,
+				    CAST(:details AS jsonb), :createdAt)
 				""")
 			.param("id", UUID.randomUUID())
 			.param("sessionId", sessionId)
@@ -155,6 +158,7 @@ class JdbcSessionRepository implements SessionRepository {
 			.param("providerId", step.providerId())
 			.param("reason", step.decisionReason())
 			.param("status", step.status())
+			.param("failureType", step.failureType())
 			.param("failure", step.failureReason())
 			.param("features", step.returnedFeatures() == null ? null : JSON.writeValueAsString(step.returnedFeatures()))
 			.param("configuredCost", step.configuredCost())
@@ -210,7 +214,8 @@ class JdbcSessionRepository implements SessionRepository {
 				String features = rs.getString("returned_features");
 				Integer sequence = (Integer) rs.getObject("prediction_sequence_number");
 				return new AcquisitionStep(rs.getInt("step_number"), rs.getString("provider_id"),
-						rs.getString("decision_reason"), rs.getString("status"), rs.getString("failure_reason"),
+						rs.getString("decision_reason"), rs.getString("status"), rs.getString("failure_type"),
+						rs.getString("failure_reason"),
 						features == null ? null : canonicalOrder(JSON.readValue(features, VALUES)),
 						rs.getBigDecimal("configured_cost"),
 						rs.getBigDecimal("charged_cost"), rs.getLong("simulated_latency_ms"), rs.getLong("execution_ms"),
@@ -230,7 +235,8 @@ class JdbcSessionRepository implements SessionRepository {
 		}
 		return new AcquisitionSession(rs.getObject("id", UUID.class), rs.getString("record_id"),
 				rs.getString("dataset_split"), rs.getString("access_mode"), rs.getString("policy_id"),
-				rs.getString("scenario_version"), rs.getString("feature_config_version"), rs.getString("model_version"),
+				rs.getString("scenario_version"), scenario(rs.getString("scenario_snapshot")),
+				rs.getString("feature_config_version"), rs.getString("model_version"),
 				SessionStatus.valueOf(rs.getString("status")), rs.getString("stop_reason"), rs.getString("stop_explanation"),
 				details(rs, "stop_decision_details"), observed,
 				rs.getBigDecimal("total_cost"), rs.getLong("accumulated_simulated_ms"), rs.getLong("execution_ms"),
@@ -246,6 +252,10 @@ class JdbcSessionRepository implements SessionRepository {
 		Map<String, Double> ordered = new LinkedHashMap<>();
 		config.modelFeatures().stream().filter(values::containsKey).forEach(f -> ordered.put(f, values.get(f)));
 		return ordered;
+	}
+
+	private static ProviderScenario scenario(String snapshot) {
+		return snapshot == null ? null : ProviderScenario.fromJson(snapshot);
 	}
 
 	private static String json(DecisionDetails details) {

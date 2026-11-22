@@ -27,62 +27,63 @@ class ProviderRegistryTest {
 		return config.providers().stream().<InformationProvider>map(g -> new FakeProvider(g, false, List.of(), 0)).toList();
 	}
 
-	static ProviderRegistry registry(ProviderScenario scenario) {
-		return new ProviderRegistry(config, scenario, fakes());
-	}
+	final ProviderRegistry registry = new ProviderRegistry(config, fakes());
 
 	@Test
 	void metadataCombinesDefinitionsAndScenarioSettings() {
-		ProviderRegistry registry = registry(TestScenarios.neutral(
-				Map.of("REPAYMENT_HISTORY", new ProviderSettings(new BigDecimal("3"), 500, true, 0.0))));
+		ProviderScenario scenario = TestScenarios.neutral(
+				Map.of("REPAYMENT_HISTORY", new ProviderSettings(new BigDecimal("3"), 500, true, 0.0)));
 
-		ProviderMetadata repayment = registry.metadata("REPAYMENT_HISTORY").orElseThrow();
+		ProviderMetadata repayment = registry.metadata("REPAYMENT_HISTORY", scenario).orElseThrow();
 		assertThat(repayment.suppliedFeatures()).isEqualTo(config.provider("REPAYMENT_HISTORY").orElseThrow().features());
 		assertThat(repayment.cost()).isEqualByComparingTo("3");
+		assertThat(repayment.latencyMs()).isEqualTo(500);
 		assertThat(repayment.expectedLatencyMs()).isEqualTo(500);
-		assertThat(registry.metadata()).extracting(ProviderMetadata::id).containsExactlyElementsOf(config.providerIds());
+		assertThat(repayment.successProbability()).isEqualTo(1.0);
+		assertThat(registry.metadata(scenario)).extracting(ProviderMetadata::id).containsExactlyElementsOf(config.providerIds());
 	}
 
 	@Test
 	void feasibleProvidersExcludeUnavailableAndAttemptedOnes() {
-		ProviderRegistry registry = registry(TestScenarios.neutral(
-				Map.of("BILLING_HISTORY", new ProviderSettings(BigDecimal.ONE, 200, false, 0.0))));
+		ProviderScenario scenario = TestScenarios.neutral(
+				Map.of("BILLING_HISTORY", new ProviderSettings(BigDecimal.ONE, 200, false, 0.0)));
 
-		assertThat(registry.feasibleProviders(Set.of())).extracting(ProviderMetadata::id)
+		assertThat(registry.feasibleProviders(scenario, Set.of())).extracting(ProviderMetadata::id)
 			.containsExactly("REPAYMENT_HISTORY", "PAYMENT_HISTORY");
-		assertThat(registry.feasibleProviders(Set.of("REPAYMENT_HISTORY"))).extracting(ProviderMetadata::id)
+		assertThat(registry.feasibleProviders(scenario, Set.of("REPAYMENT_HISTORY"))).extracting(ProviderMetadata::id)
 			.containsExactly("PAYMENT_HISTORY");
-		assertThat(registry.feasibleProviders(Set.of("REPAYMENT_HISTORY", "PAYMENT_HISTORY"))).isEmpty();
+		assertThat(registry.feasibleProviders(scenario, Set.of("REPAYMENT_HISTORY", "PAYMENT_HISTORY"))).isEmpty();
 	}
 
 	@Test
 	void changingTheScenarioChangesCostsButNotFeatures() {
-		ProviderRegistry cheap = registry(TestScenarios.neutral());
-		ProviderRegistry expensive = registry(TestScenarios.neutral(
-				Map.of("PAYMENT_HISTORY", new ProviderSettings(BigDecimal.TEN, 900, true, 0.3))));
+		ProviderScenario cheap = TestScenarios.neutral();
+		ProviderScenario expensive = TestScenarios.neutral(
+				Map.of("PAYMENT_HISTORY", new ProviderSettings(BigDecimal.TEN, 900, true, 0.3)));
 
-		assertThat(expensive.metadata("PAYMENT_HISTORY").orElseThrow().cost()).isEqualByComparingTo("10");
-		assertThat(expensive.metadata()).extracting(ProviderMetadata::suppliedFeatures)
-			.isEqualTo(cheap.metadata().stream().map(ProviderMetadata::suppliedFeatures).toList());
+		assertThat(registry.metadata("PAYMENT_HISTORY", expensive).orElseThrow().cost()).isEqualByComparingTo("10");
+		assertThat(registry.metadata("PAYMENT_HISTORY", expensive).orElseThrow().successProbability()).isEqualTo(0.7);
+		assertThat(registry.metadata(expensive)).extracting(ProviderMetadata::suppliedFeatures)
+			.isEqualTo(registry.metadata(cheap).stream().map(ProviderMetadata::suppliedFeatures).toList());
 	}
 
 	@Test
 	void everyConfiguredProviderNeedsExactlyOneMatchingImplementation() {
 		List<InformationProvider> missing = new ArrayList<>(fakes());
 		missing.remove(0);
-		assertThatThrownBy(() -> new ProviderRegistry(config, TestScenarios.neutral(), missing))
+		assertThatThrownBy(() -> new ProviderRegistry(config, missing))
 			.hasMessageContaining("No implementation");
 
 		List<InformationProvider> duplicate = new ArrayList<>(fakes());
 		duplicate.add(fakes().get(0));
-		assertThatThrownBy(() -> new ProviderRegistry(config, TestScenarios.neutral(), duplicate))
+		assertThatThrownBy(() -> new ProviderRegistry(config, duplicate))
 			.hasMessageContaining("More than one");
 
 		ProviderGroup billing = config.provider("BILLING_HISTORY").orElseThrow();
 		List<InformationProvider> wrongFeatures = new ArrayList<>(fakes());
 		wrongFeatures.set(1, new FakeProvider(new ProviderGroup(billing.id(), "", List.of("BILL_AMT2")), false,
 				List.of(), 0));
-		assertThatThrownBy(() -> new ProviderRegistry(config, TestScenarios.neutral(), wrongFeatures))
+		assertThatThrownBy(() -> new ProviderRegistry(config, wrongFeatures))
 			.hasMessageContaining("feature configuration declares");
 	}
 

@@ -24,7 +24,8 @@ import edu.auk.acquisition.TestcontainersConfiguration;
 /** Billing History is unavailable: it is never selected or called, and no step is recorded (ER-9). */
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(properties = { TestDataset.FEATURES_DIR_PROPERTY,
-		"acquisition.scenario-config=src/test/resources/scenarios/billing-unavailable.json" })
+		"acquisition.scenarios-dir=src/test/resources/scenarios",
+		"acquisition.default-scenario=test-billing-unavailable" })
 @AutoConfigureMockMvc
 class AdvanceUnavailableScenarioTest extends AdvanceTestSupport {
 

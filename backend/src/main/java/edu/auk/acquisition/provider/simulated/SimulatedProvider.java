@@ -8,26 +8,25 @@ import edu.auk.acquisition.feature.ProviderGroup;
 import edu.auk.acquisition.provider.InformationProvider;
 import edu.auk.acquisition.provider.ProviderRequest;
 import edu.auk.acquisition.provider.ProviderResult;
-import edu.auk.acquisition.scenario.ProviderScenario;
 import edu.auk.acquisition.scenario.ProviderSettings;
 
 /**
  * Simulates one provider from the complete experimental records: reveals only its own feature
- * group, reports the scenario latency without waiting (virtual time), and fails
- * deterministically according to the scenario's failure rate and seed (NFR-6).
+ * group, reports a simulated latency without waiting (virtual time), and fails deterministically
+ * according to the session scenario's failure rate and seed (NFR-6). The latency is the
+ * scenario latency plus reproducible jitter; the executor decides whether that is a timeout.
  */
 public final class SimulatedProvider implements InformationProvider {
 
 	static final String FAILURE_REASON = "Simulated provider failure";
 
 	private final ProviderGroup group;
-	private final RestrictedRecordReader reader;
-	private final ProviderScenario scenario;
 
-	public SimulatedProvider(ProviderGroup group, RestrictedRecordReader reader, ProviderScenario scenario) {
+	private final RestrictedRecordReader reader;
+
+	public SimulatedProvider(ProviderGroup group, RestrictedRecordReader reader) {
 		this.group = group;
 		this.reader = reader;
-		this.scenario = scenario;
 	}
 
 	@Override
@@ -42,11 +41,13 @@ public final class SimulatedProvider implements InformationProvider {
 
 	@Override
 	public ProviderResult acquire(ProviderRequest request) {
-		ProviderSettings settings = scenario.settings(group.id());
-		if (fails(scenario.seed(), request.recordId(), group.id(), settings.failureRate())) {
-			return ProviderResult.failure(FAILURE_REASON, settings.latencyMs());
+		long seed = request.scenario().seed();
+		ProviderSettings settings = request.scenario().settings(group.id());
+		long latencyMs = settings.latencyMs() + jitter(seed, request.recordId(), group.id(), settings.latencyJitterMs());
+		if (fails(seed, request.recordId(), group.id(), settings.failureRate())) {
+			return ProviderResult.failure(FAILURE_REASON, latencyMs);
 		}
-		return ProviderResult.success(reader.providerGroup(request.recordId(), group.id()), settings.latencyMs());
+		return ProviderResult.success(reader.providerGroup(request.recordId(), group.id()), latencyMs);
 	}
 
 	/**
@@ -62,6 +63,18 @@ public final class SimulatedProvider implements InformationProvider {
 		}
 		long key = seed * 0x9E3779B97F4A7C15L + (recordId + "|" + providerId).hashCode();
 		return new SplittableRandom(key).nextDouble() < failureRate;
+	}
+
+	/**
+	 * Extra simulated latency, uniform in {@code 0..maxJitterMs}; reproducible for the same seed,
+	 * record and provider, and independent of the failure decision.
+	 */
+	static long jitter(long seed, String recordId, String providerId, long maxJitterMs) {
+		if (maxJitterMs <= 0) {
+			return 0;
+		}
+		long key = seed * 0xC2B2AE3D27D4EB4FL + (recordId + "|" + providerId + "|latency").hashCode();
+		return new SplittableRandom(key).nextLong(maxJitterMs + 1);
 	}
 
 }

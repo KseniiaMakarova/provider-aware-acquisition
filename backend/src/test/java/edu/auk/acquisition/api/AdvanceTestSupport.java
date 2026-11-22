@@ -79,9 +79,15 @@ abstract class AdvanceTestSupport {
 	}
 
 	String createSession(String recordId, String policyId) throws Exception {
+		return createSession(recordId, policyId, null);
+	}
+
+	/** @param scenarioId scenario to use, or {@code null} for the default */
+	String createSession(String recordId, String policyId, String scenarioId) throws Exception {
+		String scenario = scenarioId == null ? "" : ", \"scenarioId\": \"" + scenarioId + "\"";
 		String body = mvc
 			.perform(post("/api/v1/sessions").contentType(MediaType.APPLICATION_JSON)
-				.content("{\"recordId\": \"" + recordId + "\", \"policyId\": \"" + policyId + "\"}"))
+				.content("{\"recordId\": \"" + recordId + "\", \"policyId\": \"" + policyId + "\"" + scenario + "}"))
 			.andExpect(status().isCreated())
 			.andReturn()
 			.getResponse()

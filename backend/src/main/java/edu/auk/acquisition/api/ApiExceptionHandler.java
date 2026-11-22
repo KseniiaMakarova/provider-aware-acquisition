@@ -23,6 +23,7 @@ import edu.auk.acquisition.session.SessionExceptions.SessionNotActiveException;
 import edu.auk.acquisition.session.SessionExceptions.SessionNotFoundException;
 import edu.auk.acquisition.session.SessionExceptions.UnknownRecordException;
 import edu.auk.acquisition.session.SessionExceptions.UnsupportedPolicyException;
+import edu.auk.acquisition.session.SessionExceptions.UnsupportedScenarioException;
 
 /** Maps failures to HTTP statuses with a consistent {@code {error, message}} body. */
 @RestControllerAdvice
@@ -60,6 +61,11 @@ class ApiExceptionHandler {
 	@ExceptionHandler(UnsupportedPolicyException.class)
 	ResponseEntity<ApiError> unsupportedPolicy(UnsupportedPolicyException e) {
 		return error(HttpStatus.BAD_REQUEST, "UNSUPPORTED_POLICY", e.getMessage());
+	}
+
+	@ExceptionHandler(UnsupportedScenarioException.class)
+	ResponseEntity<ApiError> unsupportedScenario(UnsupportedScenarioException e) {
+		return error(HttpStatus.BAD_REQUEST, "UNSUPPORTED_SCENARIO", e.getMessage());
 	}
 
 	@ExceptionHandler(UnknownRecordException.class)
