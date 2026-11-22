@@ -1,8 +1,24 @@
 # Frontend
 
-Angular 22 application (standalone components, no zone.js, Vitest for tests). It is currently an
-application shell with routing; the views for acquisition sessions and experiment results are
-planned for the next phase.
+Angular 22 application (standalone components, signals, no zone.js, Vitest for tests). It has one
+page, the acquisition session:
+
+- **Start:** record ID from the validation split, policy and provider scenario, all read from the
+  backend (`/api/v1/policies`, `/api/v1/scenarios`), with the scenario's provider characteristics.
+- **Session:** current probability of default, providers acquired, calls, total cost and simulated
+  time; **Next step** (one `/advance`) and **Run to end** (repeated `/advance` until the policy
+  stops, each request still one decision); the stop reason and its explanation.
+- **Latest decision:** every provider with its status, cost, expected time and success probability
+  and, for the adaptive policy, its expected information gain, price and score.
+- **Observed information** grouped by provider: values only for acquired groups, "values not
+  acquired" otherwise; failed and timed-out calls with their reason.
+- **Prediction history** and **provider calls** with decision reasons, costs and simulated time.
+
+A session can be reopened with `?session=<id>`. All results come from the backend API: the page
+does not compute predictions, estimates or scores itself, and it never receives values that have
+not been acquired.
+
+Comparison views for experiments are planned for the evaluation phase.
 
 ## Running
 
